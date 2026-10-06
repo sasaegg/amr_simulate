@@ -1,0 +1,11 @@
+# colcon 建置產物（可由原始碼重新產生）
+build/
+install/
+log/
+
+# Python 快取
+__pycache__/
+.pytest_cache/
+
+# 個人本機覆寫設定（不進版控）
+.env.local

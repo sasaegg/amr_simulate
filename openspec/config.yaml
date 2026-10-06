@@ -1,0 +1,40 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+context: |
+  所有 artifact 以繁體中文撰寫（程式碼、識別字、SHALL/WHEN/THEN 等規格關鍵字維持英文）。
+  執行環境：Ubuntu 22.04 實機（筆電雙顯卡：Intel 內顯 + NVIDIA RTX 3060 Mobile）+ 原生 Docker Engine + NVIDIA Container Toolkit + docker compose（network_mode: host、ipc: host）。容器只用標準 X11 送畫面到主機 X server（Wayland 下經 XWayland），GPU 繪圖以 PRIME render offload 交給 NVIDIA；保留軟體渲染疊加檔作為無 GPU 時的退路。
+  本專案兼作學習用途：每個實作步驟須在 docs/學習筆記/ 留一份筆記（為什麼、做了什麼、怎麼驗證、面試追問、踩坑紀錄）。
+  ROS 2 Humble + Gazebo Fortress（ros_gz），不使用 Gazebo Classic。
+  多車預留：所有車輛 topic / TF frame / Nav2 實例必須帶 namespace（第一台為 amr1），API 皆帶 robot_id；第一版只跑一台。
+  技術棧：導航 slam_toolbox（2D）+ Nav2；後端 FastAPI + rclpy + SQLite；前端 React + Vite + TypeScript，前端只與後端溝通，不直連 ROS。
+  子專案順序：1 基礎環境+模擬世界 → 2 建圖/定位/導航 → 3 後端+前端基礎（2D/3D 地圖、即時位置、點擊派車）→ 4 儲位+任務佇列 → 5 3D SLAM 升級（之後）。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
