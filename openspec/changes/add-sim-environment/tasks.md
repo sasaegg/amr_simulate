@@ -21,7 +21,7 @@
 
 - [x] 3.1 （筆記 07）建立 `ros_ws/src/amr_worlds`（ament_python：`package.xml`、`setup.py`、`setup.cfg`、`resource/`，安裝 `worlds/`、`scenes/`，entry point `gen_world`）；筆記說明 colcon、ament_python 與 ament_cmake 差異、`--symlink-install`、overlay 與 underlay。驗證：容器內 `colcon build` 成功、`ros2 pkg list` 含 `amr_worlds`
 - [x] 3.2 （筆記 08）先寫 `amr_worlds/test/test_gen_world.py` 的正向測試：範例場景可產生、檔名 = `name`、兩次輸出逐位元組相同、地板與四面外牆存在、牆中心／長度／yaw 計算正確、省略 thickness/height 用預設 0.2／2.0、每個元素具 visual 與 collision。驗證：在未 source ROS 的 shell 執行 `python3 -m pytest` 全部失敗（尚未實作）
-- [ ] 3.3 （筆記 08）補驗證錯誤測試：缺 `size`、尺寸 ≤ 0、型別錯誤、元素超出邊界（訊息含類型與索引）、spawn 落在元素內或距離 < 0.35 m（訊息含 robot_id 與衝突元素）、錯誤時不產生 `.sdf` 且結束碼非零、既有 `.sdf` 在失敗時內容不變、`<name>_edited.sdf` 不被覆寫。驗證：新增測試全部失敗
+- [x] 3.3 （筆記 08）補驗證錯誤測試：缺 `size`、尺寸 ≤ 0、型別錯誤、元素超出邊界（訊息含類型與索引）、spawn 落在元素內或距離 < 0.35 m（訊息含 robot_id 與衝突元素）、錯誤時不產生 `.sdf` 且結束碼非零、既有 `.sdf` 在失敗時內容不變、`<name>_edited.sdf` 不被覆寫。驗證：新增測試全部失敗
 - [ ] 3.4 （筆記 08）實作 `amr_worlds/gen_world.py`（D6：載入 → 驗證 → SDF、固定順序與數值格式、暫存檔後取代、world 含 physics／user-commands／scene-broadcaster／sensors(ogre2)／imu 系統）。驗證：3.2、3.3 測試在未 source ROS 的 shell 中全部通過
 - [ ] 3.5 （筆記 08）撰寫 `scenes/warehouse_small.yaml`（20×15 m、內牆、兩排貨架含 `[3, 8]` 一座、數個 box／cylinder 障礙物、`spawn: {amr1: [1, 1, 0]}`），以 `ros2 run amr_worlds gen_world` 產生 `worlds/warehouse_small.sdf` 並納入版控；撰寫 `amr_worlds/README.md`（YAML 欄位、預設值、產生指令、「結構改 YAML、細節用 GUI 另存 `_edited.sdf`」）。驗證：`docker compose run --rm sim ign gazebo /ros_ws/src/amr_worlds/worlds/warehouse_small.sdf` 載入無錯誤並顯示場景；依 README 指令重新產生後 `git diff` 無變化
 
