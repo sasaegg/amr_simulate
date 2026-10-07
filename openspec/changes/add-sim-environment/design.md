@@ -38,7 +38,7 @@
 - 驅動必須在 toolkit 之前：toolkit 執行時注入的是主機已安裝的驅動函式庫。
 - 選 `-open` kernel module：Turing 之後架構 NVIDIA 官方建議使用開源 kernel module；RTX 3060 為 Ampere。
 - `docker` 群組等同 root 權限（可掛載 `/` 進容器），筆記中說明此取捨與 rootless Docker 替代方案。
-- X 存取權：容器以與主機相同 UID 執行（見 D3）。實查（2026-10-07，Xorg）`xhost` 已含 `SI:localuser:myuser`，因此預期不需額外放寬；task 2.3 以 xeyes 實測確認，只有不允許時才加 `xhost +SI:localuser:<使用者>`（優於 `+local:`，不開放給本機其他使用者），並包成 `scripts/allow_x.sh`，不修改系統開機設定。
+- X 存取權：容器以與主機相同 UID 執行（見 D3）。實查（2026-10-07，Xorg）`xhost` 已含 `SI:localuser:myuser`，因此預期不需額外放寬；task 2.3 以 xeyes 實測確認，只有不允許時才加 `xhost +SI:localuser:<使用者>`（優於 `+local:`，不開放給本機其他使用者），並包成 `docker/allow_x.sh`，不修改系統開機設定。
 
 ### D2：GPU 透過 NVIDIA Container Toolkit 注入，映像內不裝驅動
 compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all, capabilities: [gpu]}]` 要求 GPU，並設定 `NVIDIA_DRIVER_CAPABILITIES=all`。
@@ -49,7 +49,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - 雙顯卡：設 `__NV_PRIME_RENDER_OFFLOAD=1`、`__GLX_VENDOR_LIBRARY_NAME=nvidia`，讓 GLVND 把 OpenGL 分派給 NVIDIA，再把畫面交給負責顯示的 X server。
 
 ### D3：映像
-單一 `docker/ros.Dockerfile`，`FROM osrf/ros:humble-desktop`（含 rviz2、rqt；官方 `ros:humble` 只有 core/base），一個 `RUN` 內 `apt-get update && apt-get install --no-install-recommends … && rm -rf /var/lib/apt/lists/*` 安裝 `ros-humble-ros-gz`、`navigation2`、`nav2-bringup`、`slam-toolbox`、`teleop-twist-keyboard`、`xacro`、`python3-pytest`、`python3-yaml`、`mesa-utils`、`x11-apps`。
+單一 `docker/amr_sim/Dockerfile`（`docker/amr_sim/` 即此映像的 build context，只含 Dockerfile、entrypoint 與 config，不含原始碼；用預設檔名，不需 `-f`），`FROM osrf/ros:humble-desktop`（含 rviz2、rqt；官方 `ros:humble` 只有 core/base），一個 `RUN` 內 `apt-get update && apt-get install --no-install-recommends … && rm -rf /var/lib/apt/lists/*` 安裝 `ros-humble-ros-gz`、`navigation2`、`nav2-bringup`、`slam-toolbox`、`teleop-twist-keyboard`、`xacro`、`python3-pytest`、`python3-yaml`、`mesa-utils`、`x11-apps`、`liburdfdom-tools`（`check_urdf`，task 4.1 用，先裝避免重建）、`sudo`（容器內臨時除錯安裝）。
 - update 與 install 同層：避免 update 層被快取而用到過期索引；清除 apt 清單必須在同層才會縮小映像。
 - 層順序由少變動到常變動。
 - 以 `ARG USER_UID`／`USER_GID`（預設 1000；compose 以 `${USER_UID:-1000}`／`${USER_GID:-1000}` 傳入，可由 shell 環境變數覆寫：`export USER_UID=$(id -u) USER_GID=$(id -g)`。注意 bash 的 `$UID` 是未 export 的 shell 變數，compose 讀不到）建立與主機同 UID 的使用者並以其執行：掛載的工作區中產生的檔案不會變成 root 擁有；同 UID 也讓 X 存取權不需對外放寬。
@@ -58,24 +58,32 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - 不用 rosdep 自動安裝：第一版相依明確且少，直接列出較易解釋；套件 `package.xml` 仍完整宣告相依。
 
 ### D4：entrypoint 與程序管理
-`docker/entrypoint.sh`：source `/opt/ros/humble/setup.bash` → 若 `/ros_ws/install` 不存在或 `BUILD=1` 則 `colcon build --symlink-install` → source `install/setup.bash` → `exec "$@"`。compose 設 `init: true`。
+`docker/amr_sim/entrypoint.sh`：source `/opt/ros/humble/setup.bash` → 若 `/ros_ws/install` 不存在或 `BUILD=1` 則 `colcon build --symlink-install` → source `install/setup.bash` → `exec "$@"`。compose 設 `init: true`。另在 Dockerfile 把 ROS 與工作區的 setup 寫入使用者 `~/.bashrc`：`docker exec` 不執行 entrypoint，exec 進入的互動式 shell 只會讀 `.bashrc`。
 - `exec` 讓目標程式成為 PID 1 的直接子程序（init 之下），訊號可正確送達，Ctrl+C／`docker stop` 能正常收尾。
 - `init: true`（tini）回收 Gazebo 產生的子程序，避免殭屍程序與關閉時殘留。
 - `--symlink-install`：Python 與 launch 檔以 symlink 安裝，修改後免重建。
 
 ### D5：compose 結構
-- 根目錄 `compose.yaml`（專案根目錄直接 `docker compose up sim`）。不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/config/`。
-- 設定分三處，各有職責：套件（程式與預設值）、`docker/config/`（本次部署／執行的設定）、compose（基礎環境與建置參數的預設值）。
-- **`docker/config/`**（以可寫方式掛載到容器 `/config`）：
+- 根目錄 `compose.yaml`（專案根目錄直接 `docker compose up sim`）。不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/amr_sim/config/`。
+- 設定分三處，各有職責：套件（程式與預設值）、`docker/amr_sim/config/`（本次部署／執行的設定）、compose（基礎環境與建置參數的預設值）。
+- **`docker/amr_sim/config/`**（以可寫方式掛載到容器 `/config`）：
   - `ros.env`：`ROS_DOMAIN_ID` 等 ROS 環境變數，以 compose `env_file` 載入。選 env_file 而不是讓 entrypoint 讀取：`docker exec` 不執行 entrypoint，只有容器層級的環境變數能讓 launch、exec 進去的 shell、之後的 nav／backend 容器都拿到同一個值。
   - `sim.yaml`：`world`、`robot_id`、`headless`，由 launch 讀取。第一版用單數 `robot_id`（多車為 Non-Goal），多車時再改為清單。
   - 可寫掛載：程式執行中可能更新設定；寫入的變更會出現在 `git status`，由使用者決定是否 commit。執行產生的資料（地圖、資料庫）屬不同類別，由後續子專案另行規劃存放位置。
   - 覆寫順序：套件預設值 ← `sim.yaml` ← launch 命令列參數。
 - 共用設定以 extension field + YAML anchor（`x-ros-common: &ros-common`）定義，供之後 `nav`、`backend` service 沿用。
-- `sim` service：`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`./ros_ws:/ros_ws`、`./docker/config:/config`、`env_file: docker/config/ros.env`、`command: ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。
+- `sim` service：`build: {context: ./docker/amr_sim, args: {USER_UID: ${USER_UID:-1000}, USER_GID: ${USER_GID:-1000}}}`、image `amr-sim:humble`、`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`./ros_ws:/ros_ws`、`./docker/amr_sim/config:/config`、`env_file: docker/amr_sim/config/ros.env`、`command: ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。
 - `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與其他容器直接可見。
 - `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
 - `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`；使用方式 `docker compose -f compose.yaml -f compose.software.yaml up sim`。
+
+### D5a：便利腳本
+`docker/` 第一層只放便利腳本，映像材料放在 `docker/<映像名>/`（目前只有 `amr_sim`，之後如前端映像另開資料夾）。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")/.."` 到專案根目錄（任何目錄執行皆可）、以 `"$@"` 轉交額外參數：
+- `build.sh`：`export USER_UID=$(id -u) USER_GID=$(id -g)` 後 `docker compose build`——自動帶入正確 UID，免手動 export。
+- `up.sh`：`docker compose up sim`，一鍵啟動模擬。
+- `exec.sh`：`docker compose exec sim bash`，進入執行中的容器。
+- `run.sh [指令]`：`docker compose run --rm sim <指令>`（無指令時開 bash），用一次性容器執行測試、`colcon build`、產生場景等。
+- 刻意不做：`down.sh`（Ctrl+C 即可）、`allow_x.sh`（預期不需要，task 2.3 驗證失敗才加）、`test.sh`（第 6 組測試齊全後再決定）。
 
 ### D6：工作區三個套件
 依「變動原因」切分：地圖、車、組裝各自獨立；子專案 2 起只在 bringup 層新增 launch。
@@ -111,4 +119,4 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 
 ## Migration Plan
 
-全新專案。舊 change 已刪除；`docker/.env` 已刪除，內容拆至 `docker/config/ros.env` 與 compose 預設值。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。
+全新專案。舊 change 已刪除；`docker/.env` 已刪除，內容拆至 `docker/amr_sim/config/ros.env` 與 compose 預設值。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。

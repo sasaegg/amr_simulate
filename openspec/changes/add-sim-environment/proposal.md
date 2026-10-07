@@ -25,8 +25,8 @@
 
 ## Impact
 
-- 新增檔案：根目錄 `compose.yaml`、`compose.software.yaml`、`.gitignore`、`.gitattributes`、`README.md`；`docker/`（Dockerfile、entrypoint、`config/ros.env`、`config/sim.yaml`）；`ros_ws/src/amr_worlds`、`amr_description`、`amr_bringup`；`docs/學習筆記/`。
-- 移除：`docker/.env`（內容拆至 `docker/config/ros.env` 與 compose 預設值）；舊版以 WSL 為前提的 `add-sim-environment` change 已刪除並由本 change 取代。
+- 新增檔案：根目錄 `compose.yaml`、`compose.software.yaml`、`.gitignore`、`.gitattributes`、`README.md`；`docker/`（便利腳本 `build.sh`、`up.sh`、`exec.sh`、`run.sh`；`amr_sim/` 內含 Dockerfile、entrypoint、`config/ros.env`、`config/sim.yaml`）；`ros_ws/src/amr_worlds`、`amr_description`、`amr_bringup`；`docs/學習筆記/`。
+- 移除：`docker/.env`（內容拆至 `docker/amr_sim/config/ros.env` 與 compose 預設值）；舊版以 WSL 為前提的 `add-sim-environment` change 已刪除並由本 change 取代。
 - 新增相依：`osrf/ros:humble-desktop` 基底映像、`ros-humble-ros-gz`、`teleop_twist_keyboard`、`xacro`、Python `pyyaml`、`pytest`；Nav2 與 slam_toolbox 先裝入映像供子專案 2 使用。
 - 主機需求：Ubuntu 22.04、原生 Docker Engine（使用者在 `docker` 群組）、NVIDIA 專有驅動、NVIDIA Container Toolkit；主機設定屬使用者系統設定，以學習筆記提供步驟，由使用者執行。
 - 不影響任何既有程式（專案為全新）。
