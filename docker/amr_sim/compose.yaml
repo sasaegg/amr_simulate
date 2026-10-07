@@ -20,6 +20,7 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: all
       __NV_PRIME_RENDER_OFFLOAD: "1"
       __GLX_VENDOR_LIBRARY_NAME: nvidia
+      AMR_WORLDS_DIR: /ros_ws/src/amr_worlds   # launch 從原始碼讀 world／場景，改 YAML 不用重新 build
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro    # X11 socket：視窗畫到主機桌面
       - ../../ros_ws:/ros_ws                 # 原始碼：改了不用重建映像
