@@ -52,7 +52,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 單一 `docker/ros.Dockerfile`，`FROM osrf/ros:humble-desktop`（含 rviz2、rqt；官方 `ros:humble` 只有 core/base），一個 `RUN` 內 `apt-get update && apt-get install --no-install-recommends … && rm -rf /var/lib/apt/lists/*` 安裝 `ros-humble-ros-gz`、`navigation2`、`nav2-bringup`、`slam-toolbox`、`teleop-twist-keyboard`、`xacro`、`python3-pytest`、`python3-yaml`、`mesa-utils`、`x11-apps`。
 - update 與 install 同層：避免 update 層被快取而用到過期索引；清除 apt 清單必須在同層才會縮小映像。
 - 層順序由少變動到常變動。
-- 以 `ARG USER_UID`／`USER_GID`（預設 1000，compose 由 `.env` 傳入）建立與主機同 UID 的使用者並以其執行：掛載的工作區中產生的檔案不會變成 root 擁有；同 UID 也讓 X 存取權不需對外放寬。
+- 以 `ARG USER_UID`／`USER_GID`（預設 1000；compose 以 `${USER_UID:-1000}`／`${USER_GID:-1000}` 傳入，可由 shell 環境變數覆寫：`export USER_UID=$(id -u) USER_GID=$(id -g)`。注意 bash 的 `$UID` 是未 export 的 shell 變數，compose 讀不到）建立與主機同 UID 的使用者並以其執行：掛載的工作區中產生的檔案不會變成 root 擁有；同 UID 也讓 X 存取權不需對外放寬。
 - Nav2／slam_toolbox 先裝：換取子專案 2 不需重建映像，代價約 +1 GB。
 - 不用 `nvidia/cuda` 基底：Gazebo 繪圖只需要 OpenGL，驅動函式庫由 toolkit 注入。
 - 不用 rosdep 自動安裝：第一版相依明確且少，直接列出較易解釋；套件 `package.xml` 仍完整宣告相依。
@@ -64,9 +64,15 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - `--symlink-install`：Python 與 launch 檔以 symlink 安裝，修改後免重建。
 
 ### D5：compose 結構
-- 根目錄 `compose.yaml`（專案根目錄直接 `docker compose up sim`）；`.env` 移至根目錄（compose 只自動讀取專案目錄的 `.env`），內含 `ROS_DOMAIN_ID`、`WORLD`、`USER_UID`、`USER_GID`。
+- 根目錄 `compose.yaml`（專案根目錄直接 `docker compose up sim`）。不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/config/`。
+- 設定分三處，各有職責：套件（程式與預設值）、`docker/config/`（本次部署／執行的設定）、compose（基礎環境與建置參數的預設值）。
+- **`docker/config/`**（以可寫方式掛載到容器 `/config`）：
+  - `ros.env`：`ROS_DOMAIN_ID` 等 ROS 環境變數，以 compose `env_file` 載入。選 env_file 而不是讓 entrypoint 讀取：`docker exec` 不執行 entrypoint，只有容器層級的環境變數能讓 launch、exec 進去的 shell、之後的 nav／backend 容器都拿到同一個值。
+  - `sim.yaml`：`world`、`robot_id`、`headless`，由 launch 讀取。第一版用單數 `robot_id`（多車為 Non-Goal），多車時再改為清單。
+  - 可寫掛載：程式執行中可能更新設定；寫入的變更會出現在 `git status`，由使用者決定是否 commit。執行產生的資料（地圖、資料庫）屬不同類別，由後續子專案另行規劃存放位置。
+  - 覆寫順序：套件預設值 ← `sim.yaml` ← launch 命令列參數。
 - 共用設定以 extension field + YAML anchor（`x-ros-common: &ros-common`）定義，供之後 `nav`、`backend` service 沿用。
-- `sim` service：`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`./ros_ws:/ros_ws`、`command: ros2 launch amr_bringup sim.launch.py world:=${WORLD}`。
+- `sim` service：`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`./ros_ws:/ros_ws`、`./docker/config:/config`、`env_file: docker/config/ros.env`、`command: ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。
 - `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與其他容器直接可見。
 - `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
 - `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`；使用方式 `docker compose -f compose.yaml -f compose.software.yaml up sim`。
@@ -77,7 +83,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - `amr_worlds`（ament_python）：`gen_world`（`ros2 run amr_worlds gen_world <yaml>`）。純 Python：pyyaml 讀檔 → 自寫 schema 驗證（欄位少，不引入 jsonschema）→ `xml.etree` 輸出 SDF。固定元素順序與數值格式以保證輸出可重現。先寫到暫存檔、驗證全部通過後才取代目標檔，確保失敗時不動既有輸出。牆為 box link（長度=兩點距離、中心=中點、yaw=atan2），貨架 box，障礙物 box／cylinder，全部放在一個 `static` model 中、每個元素一個 link，具 visual 與 collision。world 載入 `ignition-gazebo-physics-system`、`-user-commands-system`、`-scene-broadcaster-system`、`-sensors-system`（`render_engine` ogre2）、`-imu-system`。`.sdf` 納入版控；`*_edited.sdf` 同目錄，產生器只寫 `<name>.sdf`。launch 經環境變數 `AMR_WORLDS_DIR` 從原始碼目錄讀 world 與場景，改 YAML 不需 colcon build。
 - `amr_description`（ament_cmake，只安裝資料檔）：`urdf/amr.urdf.xacro`，參數 `robot_id`。底盤 0.5×0.4×0.2 m、兩驅動輪、前後萬向輪（低摩擦球）、`laser_link`、`imu_link`，各 link 具 visual／collision／inertial。外掛：`ignition-gazebo-diff-drive-system`（topic `/<id>/cmd_vel_gz`、odom ≥ 20 Hz、frame `<id>/odom → <id>/base_footprint`、速度上限 1.0 m/s／1.5 rad/s）、`ignition-gazebo-joint-state-publisher-system`、`gpu_lidar`（360 樣本、0.12–12 m、10 Hz）、`imu`（100 Hz）。gpu_lidar 以 GPU 深度影像換算距離，因此依賴渲染引擎——這是 ogre1 失效、以及需要 GPU 的原因。
 - `amr_bringup`（ament_python）：
-  - `sim.launch.py`：參數 `world`、`robot_id`、`headless`（預設 false）。啟動 `ign gazebo`（headless 時 `-s --headless-rendering`，以 EGL 離屏渲染）→ 由場景 YAML 讀取 spawn（edited world 退回同名去 `_edited` 的 YAML，再退回原點）→ `ros_gz_sim create` → `ros_gz_bridge`（YAML 設定，由 robot_id 產生）→ `robot_state_publisher`（namespace、`frame_prefix: <id>/`、`use_sim_time`）→ watchdog。生成車輛的部分包成 `spawn_robot(robot_id, pose)`，多車時迴圈呼叫。
+  - `sim.launch.py`：參數 `config`（`sim.yaml` 路徑，可省略）、`world`（預設 `warehouse_small`）、`robot_id`（預設 `amr1`）、`headless`（預設 false），依「套件預設 ← `sim.yaml` ← 命令列」合併（合併邏輯為可單元測試的純函式）。啟動 `ign gazebo`（headless 時 `-s --headless-rendering`，以 EGL 離屏渲染）→ 由場景 YAML 讀取 spawn（edited world 退回同名去 `_edited` 的 YAML，再退回原點）→ `ros_gz_sim create` → `ros_gz_bridge`（YAML 設定，由 robot_id 產生）→ `robot_state_publisher`（namespace、`frame_prefix: <id>/`、`use_sim_time`）→ watchdog。生成車輛的部分包成 `spawn_robot(robot_id, pose)`，多車時迴圈呼叫。
   - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入（可不等真實時間、不啟動 ROS 即測試）；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。理由：Fortress diff-drive 無逾時參數，teleop 當掉時車會持續前進——deadman 設計。
   - bridge：`/clock`（gz→ros）、`/<id>/odom`、`/<id>/scan`、`/<id>/imu`、`/<id>/joint_states`、`/tf`（diff-drive 的 odom tf，gz→ros）、`/<id>/cmd_vel_gz`（ros→gz）。
 
@@ -98,11 +104,11 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 - [PRIME offload 設定後仍由 Intel 繪圖] → 以 `glxinfo -B` 驗證 renderer；若失敗，檢查容器內是否有 `libGLX_nvidia.so.0`（legacy 模式下需 `NVIDIA_DRIVER_CAPABILITIES` 含 graphics）、`prime-select query` 是否為 `on-demand` 或 `nvidia`。
 - [headless 模式的 EGL 離屏渲染在此驅動組合下失敗] → 冒煙測試先嘗試 `--headless-rendering`；不行則改為在有 `DISPLAY` 的環境下以 `-s` 執行（server 端仍會以 GPU 渲染光達），並記錄於踩坑紀錄。
 - [`deploy: !reset` 需要 compose v2.24+] → 主機為 Docker 29.8 附帶的 compose plugin，符合；筆記註明版本需求。
-- [同 UID 使用者在其他主機 UID 不是 1000] → `USER_UID`／`USER_GID` 由 `.env` 設定，README 說明以 `id -u` 填入。
+- [同 UID 使用者在其他主機 UID 不是 1000] → compose 預設 1000，其他主機於建置前 `export USER_UID=$(id -u) USER_GID=$(id -g)`，寫入 README。
 - [`docker` 群組等同 root] → 單人開發機可接受；筆記說明 rootless Docker 替代方案。
 - [GUI 另存的 `_edited.sdf` 與 YAML 不再同步] → 刻意取捨：結構變更改 YAML，細節微調用 GUI 另存。
 - [預先安裝 Nav2／slam_toolbox 讓映像變大] → 換取子專案 2 不需重建。
 
 ## Migration Plan
 
-全新專案。舊 change 已刪除（`docker/.env` 移至根目錄 `.env`）。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。
+全新專案。舊 change 已刪除；`docker/.env` 已刪除，內容拆至 `docker/config/ros.env` 與 compose 預設值。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。

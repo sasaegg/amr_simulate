@@ -13,7 +13,7 @@
 
 - [ ] 2.1 （筆記 04）撰寫 `docker/ros.Dockerfile`（D3：`osrf/ros:humble-desktop`、單一 RUN 安裝套件並清 apt 清單、`USER_UID`／`USER_GID` 建立同 UID 使用者）。驗證：`docker build` 成功；`docker run --rm <image> ign gazebo --version` 顯示 Fortress 6.x；`docker history` 觀察層與大小並記錄於筆記
 - [ ] 2.2 （筆記 05）撰寫 `docker/entrypoint.sh`（D4：source ROS、條件式 `colcon build --symlink-install`、`exec "$@"`）並接入 Dockerfile。驗證：重建映像後 `docker run --rm <image> bash -c 'echo $ROS_DISTRO'` 輸出 `humble`；筆記以 `ps` 說明有無 `exec` 時 PID 的差異
-- [ ] 2.3 （筆記 06）撰寫根目錄 `compose.yaml`（D5：`x-ros-common` anchor、`sim` service 的 host 網路、`ipc: host`、`init: true`、GPU 設定、PRIME 變數、X11、`./ros_ws` 掛載），把 `docker/.env` 移為根目錄 `.env` 並加入 `USER_UID`／`USER_GID`；依 D1 以 `xhost` 檢查 X 存取權，必要時加 `scripts/allow_x.sh`。驗證：`docker compose run --rm sim xeyes` 視窗出現在桌面；`docker compose run --rm sim glxinfo -B` renderer 為 NVIDIA；`docker compose run --rm sim ign gazebo shapes.sdf` 開啟且可旋轉、執行中主機 `nvidia-smi` 看得到該程序；在 `ros_ws` 建立的檔案於主機上屬於使用者
+- [ ] 2.3 （筆記 06）撰寫根目錄 `compose.yaml`（D5：`x-ros-common` anchor、`sim` service 的 host 網路、`ipc: host`、`init: true`、GPU 設定、PRIME 變數、X11、`./ros_ws` 掛載），建立 `docker/config/ros.env`（`ROS_DOMAIN_ID=0`）以 `env_file` 載入、`./docker/config` 可寫掛載到 `/config`，`USER_UID`／`USER_GID` 以 compose 預設值 `${USER_UID:-1000}` 傳入；依 D1 以 `xhost` 檢查 X 存取權，必要時加 `scripts/allow_x.sh`。驗證：`docker compose run --rm sim xeyes` 視窗出現在桌面；`docker compose run --rm sim glxinfo -B` renderer 為 NVIDIA；`docker compose run --rm sim ign gazebo shapes.sdf` 開啟且可旋轉、執行中主機 `nvidia-smi` 看得到該程序；在 `ros_ws` 建立的檔案於主機上屬於使用者；`docker compose run --rm sim bash -c 'echo $ROS_DOMAIN_ID'` 輸出 0，執行中以 `docker compose exec` 進入亦為 0；容器內 `touch /config/x` 成功且主機 `docker/config/x` 出現（驗證後刪除）
 - [ ] 2.4 （筆記 06 補充段）撰寫 `compose.software.yaml`（`deploy: !reset {}`、`LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`）。驗證：`docker compose -f compose.yaml -f compose.software.yaml run --rm sim glxinfo -B` renderer 為 `llvmpipe`，且 `ign gazebo shapes.sdf` 可開啟
 - [ ] 2.5 （筆記 06 補充段）驗證容器間 DDS 互通：兩個 `docker compose run --rm sim` 容器分別執行 `ros2 run demo_nodes_cpp talker` 與 `listener`，listener 持續收到訊息；筆記記錄暫時拿掉 `ipc: host` 時的現象（看得到 topic 但收不到資料或收得到——如實記錄）後恢復設定
 
@@ -35,8 +35,8 @@
 - [ ] 5.1 （筆記 10）建立 `ros_ws/src/amr_bringup`（ament_python）；先寫 watchdog 邏輯類別的 pytest（收到指令即轉發、0.5 s 無指令輸出一次零速度、之後不重複、恢復指令後再次轉發；時間由測試注入）。驗證：測試失敗（尚未實作）
 - [ ] 5.2 （筆記 10）實作 watchdog 邏輯類別與 `cmd_vel_watchdog` rclpy 節點（訂閱 `cmd_vel`、發布 `cmd_vel_gz`，皆為相對名稱以吃 namespace）。驗證：5.1 測試通過
 - [ ] 5.3 （筆記 10）撰寫 ros_gz_bridge 設定產生方式（D6 列出的 topic 與方向，以 robot_id 參數化）；筆記說明 gz transport 與 ROS 2 是兩套獨立的通訊系統、bridge 的方向與型別對應。驗證：pytest 檢查以 `amr1` 產生的設定含全部 topic 且方向正確
-- [ ] 5.4 （筆記 11）撰寫 `launch/sim.launch.py`（參數 `world`、`robot_id`、`headless`；`AMR_WORLDS_DIR`；spawn 位姿解析含 `_edited` 退回規則；`spawn_robot(robot_id, pose)` 函式；robot_state_publisher 的 namespace、`frame_prefix`、`use_sim_time`）；spawn 解析邏輯抽成可測函式並寫 pytest。驗證：pytest 通過；`docker compose run --rm sim ros2 launch amr_bringup sim.launch.py` 後 Gazebo 顯示倉庫與位於 (1,1) 朝 +x 的車，bridge 無錯誤訊息
-- [ ] 5.5 （筆記 11）把 compose `sim` service 的 `command` 設為 launch 並以 `${WORLD}` 帶入 `world`。驗證：`docker compose up sim` 一鍵啟動；Ctrl+C 後 `docker compose ps` 無殘留容器、主機 `nvidia-smi` 無殘留 gazebo 程序；在 GUI 另存 `warehouse_small_edited.sdf` 後 `WORLD=warehouse_small_edited docker compose up sim` 可載入
+- [ ] 5.4 （筆記 11）撰寫 `launch/sim.launch.py`（參數 `config`、`world`、`robot_id`、`headless`，依「套件預設 ← `sim.yaml` ← 命令列」合併，合併邏輯抽成純函式並寫 pytest：無設定檔用預設、設定檔覆寫預設、命令列覆寫設定檔；`AMR_WORLDS_DIR`；spawn 位姿解析含 `_edited` 退回規則；`spawn_robot(robot_id, pose)` 函式；robot_state_publisher 的 namespace、`frame_prefix`、`use_sim_time`）；spawn 解析邏輯抽成可測函式並寫 pytest。驗證：pytest 通過；`docker compose run --rm sim ros2 launch amr_bringup sim.launch.py` 後 Gazebo 顯示倉庫與位於 (1,1) 朝 +x 的車，bridge 無錯誤訊息
+- [ ] 5.5 （筆記 11）新增 `docker/config/sim.yaml`（`world: warehouse_small`、`robot_id: amr1`、`headless: false`），把 compose `sim` service 的 `command` 設為 `ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。驗證：`docker compose up sim` 一鍵啟動；Ctrl+C 後 `docker compose ps` 無殘留容器、主機 `nvidia-smi` 無殘留 gazebo 程序；在 GUI 另存 `warehouse_small_edited.sdf` 後把 `sim.yaml` 的 `world` 改為 `warehouse_small_edited` 重啟可載入（之後改回）；`ros.env` 改為 `ROS_DOMAIN_ID=42` 重啟後，另一個同樣載入 env_file 的容器仍收得到 `/amr1/scan`（之後改回 0）
 - [ ] 5.6 （筆記 11）驗證車輛介面：另開容器執行 `teleop_twist_keyboard --ros-args -r cmd_vel:=/amr1/cmd_vel` 可開車、關閉 teleop 後車在 1 秒內停下；`ros2 topic list` 只有帶 namespace 的車輛 topic；`ros2 topic hz` 記錄 scan／odom／imu 頻率；`ros2 run tf2_ros tf2_echo amr1/odom amr1/laser_link` 有輸出；RViz（Fixed Frame `amr1/odom`）看得到 `/amr1/scan` 掃到牆與貨架
 
 ## 6. 自動化冒煙測試
@@ -45,7 +45,7 @@
 
 ## 7. 文件與整體驗收
 
-- [ ] 7.1 （筆記 13）撰寫根目錄 `README.md`：主機前置（連結學習筆記 01–03）、`.env` 設定（`id -u`）、建置與啟動、切換 world、軟體渲染疊加檔、teleop、RViz／另一容器觀察 topic、執行所有測試。驗證：依 README 從 `docker compose build` 開始操作可完成啟動
+- [ ] 7.1 （筆記 13）撰寫根目錄 `README.md`：主機前置（連結學習筆記 01–03）、`docker/config/`（`ros.env`、`sim.yaml`）說明與 UID 非 1000 時的 `export USER_UID=$(id -u) USER_GID=$(id -g)`、建置與啟動、切換 world、軟體渲染疊加檔、teleop、RViz／另一容器觀察 topic、執行所有測試。驗證：依 README 從 `docker compose build` 開始操作可完成啟動
 - [ ] 7.2 （筆記 13）使用者依 design D7 手動驗收清單逐項確認（NVIDIA renderer、`nvidia-smi` 看得到 gazebo、軟體渲染可用、GUI 旋轉／平移／縮放、teleop 開車與放開停車、RViz 看到 scan、另一容器 echo `/amr1/scan` 有資料、改 YAML 重新產生重啟後看到變化且未重建映像、edited world 可載入），結果記錄於筆記 13；更新 `docs/開發摘要.md` 子專案 1 狀態
 
 ## Workflow follow-up

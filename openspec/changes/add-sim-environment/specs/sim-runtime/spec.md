@@ -18,11 +18,30 @@
 - **THEN** 模擬相關程序全部結束，容器停止，不殘留 Gazebo 程序
 
 ### Requirement: 選擇場景
-啟動時 SHALL 可透過環境變數 `WORLD` 或 launch 參數 `world` 指定要載入的 world；未指定時使用 `warehouse_small`。
+要載入的 world SHALL 依序由下列來源決定，後者覆寫前者：(1) 套件內建預設值 `warehouse_small`；(2) 執行設定檔 `sim.yaml` 的 `world`；(3) 啟動指令的 launch 參數 `world`。切換場景 SHALL 不需修改 compose 檔或重建映像。
 
-#### Scenario: 指定其他 world
-- **WHEN** 使用者以 `WORLD=warehouse_small_edited docker compose up sim` 啟動
+#### Scenario: 由執行設定檔切換
+- **WHEN** 使用者把 `sim.yaml` 的 `world` 改為 `warehouse_small_edited` 並重新啟動模擬
 - **THEN** Gazebo 載入 `warehouse_small_edited.sdf`
+
+#### Scenario: 未設定時使用預設值
+- **WHEN** `sim.yaml` 沒有 `world` 欄位，啟動指令也未指定
+- **THEN** Gazebo 載入 `warehouse_small.sdf`
+
+#### Scenario: 命令列覆寫
+- **WHEN** `sim.yaml` 設為 `warehouse_small`，但啟動指令帶 `world:=warehouse_small_edited`
+- **THEN** Gazebo 載入 `warehouse_small_edited.sdf`
+
+### Requirement: 執行設定集中管理
+執行期設定 SHALL 集中於專案的 `docker/config/` 目錄：容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）放在一個環境變數檔，模擬參數放在 `sim.yaml`。該目錄掛載進容器時 SHALL 可寫入。
+
+#### Scenario: exec 進入的 shell 取得相同 domain
+- **WHEN** 使用者把設定檔中的 `ROS_DOMAIN_ID` 改為 42 並重啟模擬，再以 `docker compose exec` 進入容器執行 `ros2 topic list`
+- **THEN** 可看到 `/amr1/*` topic，且該 shell 的 `ROS_DOMAIN_ID` 為 42
+
+#### Scenario: 程式可寫入設定目錄
+- **WHEN** 容器內的程序在 `/config` 下建立或修改檔案
+- **THEN** 寫入成功，且變更出現在主機的 `docker/config/`
 
 ### Requirement: 容器以標準 X11 取得顯示
 模擬容器 SHALL 只透過標準 Linux X11 機制（`DISPLAY` 環境變數與 `/tmp/.X11-unix` socket）把圖形畫面送到主機的 X server；容器內程序 SHALL 以與主機使用者相同的 UID 執行。
@@ -68,7 +87,7 @@ Gazebo 視窗 SHALL 允許使用者以滑鼠旋轉、平移、縮放 3D 視角�
 - **THEN** 視角繞場景旋轉，車輛與光達視覺化持續更新
 
 ### Requirement: 主機與容器的 ROS 互通
-模擬容器 SHALL 使模擬主機上的其他容器（後續子專案的導航、後端）與主機上的 ROS 工具可透過 ROS 2 DDS 發現模擬的 topic 並收到資料；所有容器 SHALL 使用相同的 `ROS_DOMAIN_ID`（預設 0，可設定）。
+模擬容器 SHALL 使模擬主機上的其他容器（後續子專案的導航、後端）與主機上的 ROS 工具可透過 ROS 2 DDS 發現模擬的 topic 並收到資料；所有容器 SHALL 使用相同的 `ROS_DOMAIN_ID`（預設 0，由 `docker/config/` 的環境變數檔設定）。
 
 #### Scenario: 另一容器可收到資料
 - **WHEN** 模擬執行中，在另一個同設定的容器內對 `/amr1/scan` 執行 echo
