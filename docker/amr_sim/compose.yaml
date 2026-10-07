@@ -1,9 +1,13 @@
 name: amr_sim
 
+# 兩個長駐容器，同一個映像：
+#   sim    世界（Gazebo）——真車上不存在，模擬時取代「真實世界」
+#   robot  車子系統（中控 robot.launch.py）——之後部署到真車上的就是這一個
 services:
   sim:
     image: amr-sim:humble
     command: ["sleep", "infinity"]
+    # 只在 sim 定義 build：robot 用同一個映像，避免建置兩次
     build:
       context: .
       args:
@@ -20,11 +24,38 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: all
       __NV_PRIME_RENDER_OFFLOAD: "1"
       __GLX_VENDOR_LIBRARY_NAME: nvidia
-      AMR_WORLDS_DIR: /ros_ws/src/amr_worlds   # launch 從原始碼讀 world／場景，改 YAML 不用重新 build
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro    # X11 socket：視窗畫到主機桌面
       - ../../ros_ws:/ros_ws                 # 原始碼：改了不用重建映像
       - ./config:/config                     # 執行設定：可寫
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  robot:
+    image: amr-sim:humble
+    command: ["sleep", "infinity"]
+
+    network_mode: host
+    # 兩個容器共用主機的 IPC：Fast DDS 同主機走 shared memory，不同 IPC 會收不到資料
+    ipc: host
+    init: true
+    env_file: ./config/ros.env
+    environment:
+      # 之後的 RViz 也需要 OpenGL 與顯示
+      DISPLAY: ${DISPLAY:-:0}
+      NVIDIA_DRIVER_CAPABILITIES: all
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      __GLX_VENDOR_LIBRARY_NAME: nvidia
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ../../ros_ws:/ros_ws
+      - ./config:/config
 
     deploy:
       resources:
