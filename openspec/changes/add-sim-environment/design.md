@@ -27,6 +27,7 @@
 **Non-Goals:**
 - slam_toolbox、Nav2 的設定與啟動（子專案 2）。
 - 多台車同時模擬（只預留 namespace 與 spawn 結構）。
+- 懸吊與不平地形：車輛為剛性（驅動輪與支撐球固定於車身），地板為平面。驅動輪彈簧懸吊（prismatic joint + 彈簧阻尼）與產生器支援斜坡／門檻，之後以獨立 change 一併實作並驗證（需先確認 Fortress 對 joint 彈簧的支援）。
 - 圖形化建築編輯器。
 - 真實車輛驅動／硬體介面。
 - 自動修改主機系統設定（驅動、toolkit、群組由使用者依筆記親手執行）。
@@ -92,7 +93,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 依「變動原因」切分：地圖、車、組裝各自獨立；子專案 2 起只在 bringup 層新增 launch。
 
 - `amr_worlds`（ament_python）：`gen_world`（`ros2 run amr_worlds gen_world <yaml>`）。純 Python：pyyaml 讀檔 → 自寫 schema 驗證（欄位少，不引入 jsonschema）→ `xml.etree` 輸出 SDF。固定元素順序與數值格式以保證輸出可重現。先寫到暫存檔、驗證全部通過後才取代目標檔，確保失敗時不動既有輸出。`name` 只允許英數字、底線、連字號（會用來當檔名，防止 `../` 路徑穿越）；數值欄位排除 bool（bool 是 int 的子類別）。邊界檢查：牆看兩端點，貨架／box 看旋轉後四角，圓柱看外接方框；出生點需距外牆內側面與各元素佔地邊緣 ≥ 0.35 m（點到旋轉矩形距離以「轉到矩形座標系」計算）。外牆放在地板外側、內側面貼齊邊界，使可用空間剛好等於 `size`；地板為 0.1 m 厚的 box，頂面在 z = 0；各物體 z = 高度／2。數值以固定 6 位小數輸出並去尾 0，保證可重現。暫存檔由 `mkstemp` 建立（權限 600），寫完改為 644 再 `os.replace`。牆為 box link（長度=兩點距離、中心=中點、yaw=atan2），貨架 box，障礙物 box／cylinder，全部放在一個 `static` model 中、每個元素一個 link，具 visual 與 collision。world 載入 `ignition-gazebo-physics-system`、`-user-commands-system`、`-scene-broadcaster-system`、`-sensors-system`（`render_engine` ogre2）、`-imu-system`。`.sdf` 納入版控；`*_edited.sdf` 同目錄，產生器只寫 `<name>.sdf`。launch 經環境變數 `AMR_WORLDS_DIR` 從原始碼目錄讀 world 與場景，改 YAML 不需 colcon build。
-- `amr_description`（ament_cmake，只安裝資料檔）：`urdf/amr.urdf.xacro`，參數 `robot_id`。底盤 0.5×0.4×0.2 m、兩驅動輪、前後萬向輪（低摩擦球）、`laser_link`、`imu_link`，各 link 具 visual／collision／inertial。外掛：`ignition-gazebo-diff-drive-system`（topic `/<id>/cmd_vel_gz`、odom ≥ 20 Hz、frame `<id>/odom → <id>/base_footprint`、速度上限 1.0 m/s／1.5 rad/s）、`ignition-gazebo-joint-state-publisher-system`、`gpu_lidar`（360 樣本、0.12–12 m、10 Hz）、`imu`（100 Hz）。gpu_lidar 以 GPU 深度影像換算距離，因此依賴渲染引擎——這是 ogre1 失效、以及需要 GPU 的原因。
+- `amr_description`（ament_cmake，只安裝資料檔）：`urdf/amr.urdf.xacro`，參數 `robot_id`。`base_footprint`（地面投影）→ `base_link`（輪軸高度 0.08 m）；底盤 0.5×0.4×0.2 m（離地 0.03 m）、兩驅動輪（r 0.08、寬 0.04、y = ±0.22、continuous）、前後剛性支撐球（r 0.03、x = ±0.2、零摩擦、fixed）、`laser_link`（車頂上方，掃描平面約 0.26 m）、`imu_link`，各 link 具 visual／collision／inertial。**URDF 的 link／joint 名稱不帶前綴**；ROS 側 TF 前綴由 robot_state_publisher 的 `frame_prefix: <id>/` 加上（兩者都加會變成 `amr1/amr1/base_link`）；Gazebo 側不經 robot_state_publisher，外掛的 frame 參數以 `robot_id` 明確填入 `<id>/...`。名稱不含 `/` 也避免 Gazebo 內部以 link 名組 topic 路徑時出錯。外掛：`ignition-gazebo-diff-drive-system`（topic `/<id>/cmd_vel_gz`、odom ≥ 20 Hz、frame `<id>/odom → <id>/base_footprint`、速度上限 1.0 m/s／1.5 rad/s）、`ignition-gazebo-joint-state-publisher-system`、`gpu_lidar`（360 樣本、0.12–12 m、10 Hz）、`imu`（100 Hz）。gpu_lidar 以 GPU 深度影像換算距離，因此依賴渲染引擎——這是 ogre1 失效、以及需要 GPU 的原因。
 - `amr_bringup`（ament_python）：
   - `sim.launch.py`：參數 `config`（`sim.yaml` 路徑，可省略）、`world`（預設 `warehouse_small`）、`robot_id`（預設 `amr1`）、`headless`（預設 false），依「套件預設 ← `sim.yaml` ← 命令列」合併（合併邏輯為可單元測試的純函式）。啟動 `ign gazebo`（headless 時 `-s --headless-rendering`，以 EGL 離屏渲染）→ 由場景 YAML 讀取 spawn（edited world 退回同名去 `_edited` 的 YAML，再退回原點）→ `ros_gz_sim create` → `ros_gz_bridge`（YAML 設定，由 robot_id 產生）→ `robot_state_publisher`（namespace、`frame_prefix: <id>/`、`use_sim_time`）→ watchdog。生成車輛的部分包成 `spawn_robot(robot_id, pose)`，多車時迴圈呼叫。
   - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入（可不等真實時間、不啟動 ROS 即測試）；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。理由：Fortress diff-drive 無逾時參數，teleop 當掉時車會持續前進——deadman 設計。
