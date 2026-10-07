@@ -6,12 +6,12 @@
 #     │  ▭▭▭  ▭▭▭  ▭▭▭        │      ●  │   ▭ 貨架（兩排）
 #  11 │                       │                │   ■ box 障礙物
 #     │                       │   ─────────────│ 9 ● 圓柱障礙物
-#   8 │  ▭▭▭  ▭▭▭  ▭▭▭        │           │   ▲ 出生點
+#   8 │  ▭▭▭  ▭▭▭  ▭▭▭        │           │
 #     │                       │                │
 #   6 │                             ◇          │   ◇ 旋轉 box
 #   4 │          ■                             │
 #   2 │                              ●         │
-#     │ ▲                                      │
+#     │                                        │
 #   0 └────────────────────────────────────────┘
 #     0         5        10   12  15          20
 name: warehouse_small
@@ -37,5 +37,4 @@ obstacles:
   - {type: cylinder, pos: [17, 12], radius: 0.3, height: 1.2}
   - {type: cylinder, pos: [14, 2], radius: 0.25, height: 1.0}
 
-spawn:
-  amr1: [1, 1, 0]
+# 車輛出生點不屬於世界：由車子系統的 docker/amr_sim/config/robot.yaml（sim.spawn）設定

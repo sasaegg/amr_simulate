@@ -16,7 +16,6 @@ DEFAULT_WALL_HEIGHT = 2.0
 OUTER_WALL_THICKNESS = 0.2
 OUTER_WALL_HEIGHT = 2.0
 FLOOR_THICKNESS = 0.1
-SPAWN_CLEARANCE = 0.35
 NAME_PATTERN = re.compile(r'[A-Za-z0-9_-]+')
 
 COLORS = {
@@ -127,19 +126,6 @@ def _inside(points, width, length, eps=1e-9):
     return all(-eps <= x <= width + eps and -eps <= y <= length + eps for x, y in points)
 
 
-def _distance(px, py, shape):
-    """點到形狀邊緣的距離；點在形狀內部時為 0。"""
-    if shape[0] == 'circle':
-        _, cx, cy, r = shape
-        return max(math.hypot(px - cx, py - cy) - r, 0.0)
-    _, cx, cy, hl, hw, yaw = shape
-    c, s = math.cos(yaw), math.sin(yaw)
-    # 把點轉到矩形自己的座標系（矩形中心為原點、長邊沿 x 軸）
-    lx = c * (px - cx) + s * (py - cy)
-    ly = -s * (px - cx) + c * (py - cy)
-    return math.hypot(max(abs(lx) - hl, 0.0), max(abs(ly) - hw, 0.0))
-
-
 def validate(scene):
     """檢查場景 dict；不合法時拋出 SceneError，訊息指出出錯的位置。"""
     if not isinstance(scene, dict):
@@ -150,6 +136,10 @@ def validate(scene):
     name = scene['name']
     if not isinstance(name, str) or not NAME_PATTERN.fullmatch(name):
         raise SceneError(f'name: 只能包含英數字、底線與連字號（會用來當檔名），收到 {name!r}')
+
+    if 'spawn' in scene:
+        # 世界不知道有哪些車：出生點屬於車子系統的設定
+        raise SceneError('spawn: 場景不再定義出生點，請改在車子系統的 robot.yaml（sim.spawn）設定')
 
     if 'size' not in scene:
         raise SceneError('size: 缺少必要欄位')
@@ -164,22 +154,6 @@ def validate(scene):
             points = endpoints if endpoints else _corners(shape)
         if not _inside(points, width, length):
             raise SceneError(f'{where}: 超出場景範圍 [0, {width:g}] x [0, {length:g}]')
-
-    spawn = scene.get('spawn', {})
-    if not isinstance(spawn, dict):
-        raise SceneError('spawn: 必須是 robot_id: [x, y, yaw] 的 mapping')
-    for robot_id, pose in spawn.items():
-        where = f'spawn.{robot_id}'
-        x, y, _ = _vector(pose, 3, where)
-        to_outer = min(x, width - x, y, length - y)
-        if to_outer < SPAWN_CLEARANCE:
-            raise SceneError(f'{where}: 距 outer_wall 僅 {max(to_outer, 0):.2f} m'
-                             f'（需 ≥ {SPAWN_CLEARANCE} m）')
-        for element, shape, _ in shapes:
-            d = _distance(x, y, shape)
-            if d < SPAWN_CLEARANCE:
-                raise SceneError(f'{where}: 距 {element} 僅 {d:.2f} m（需 ≥ {SPAWN_CLEARANCE} m）')
-
 
 # ---------- 產生 SDF ----------
 

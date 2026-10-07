@@ -20,7 +20,6 @@ def scene():
             {'type': 'box', 'pos': [12, 4], 'size': [1, 1, 1]},
             {'type': 'cylinder', 'pos': [16, 11], 'radius': 0.4, 'height': 1.0},
         ],
-        'spawn': {'amr1': [1, 1, 0]},
     }
 
 def test_wall_pose_horizontal():
@@ -153,26 +152,10 @@ def test_validate_element_out_of_bounds(scene, modify, where):
     modify(scene)
     assert_scene_error(scene, where)
 
-@pytest.mark.parametrize('spawn, conflict', [
-    ([12, 4, 0], 'obstacles[0]'),      # 落在 box 內
-    ([12.7, 4, 0], 'obstacles[0]'),    # 距 box 邊緣 0.2 m < 0.35 m
-    ([16, 11.5, 0], 'obstacles[1]'),   # 距圓柱表面 0.1 m
-    ([5.2, 3, 0], 'walls[0]'),         # 距內牆表面 0.1 m
-    ([3, 8.2, 0], 'shelves[0]'),       # 落在貨架內
-    ([0.2, 5, 0], 'outer_wall'),       # 距外牆 0.2 m
-])
-def test_validate_spawn_too_close(scene, spawn, conflict):
-    scene['spawn']['amr1'] = spawn
-    assert_scene_error(scene, 'spawn.amr1', conflict)
-
-def test_validate_spawn_just_far_enough(scene):
-    scene['spawn']['amr1'] = [12.9, 4, 0]      # 距 box 邊緣 0.4 m ≥ 0.35 m
-    validate(scene)
-
-@pytest.mark.parametrize('spawn', [[1, 1], 'here', [1, 'a', 0]])
-def test_validate_spawn_bad_format(scene, spawn):
-    scene['spawn']['amr1'] = spawn
-    assert_scene_error(scene, 'spawn.amr1')
+def test_validate_rejects_spawn_field(scene):
+    # 出生點改由車子系統的 robot.yaml 設定；場景還寫著 spawn 時要明確報錯，不能默默忽略
+    scene['spawn'] = {'amr1': [1, 1, 0]}
+    assert_scene_error(scene, 'spawn', 'robot.yaml')
 
 def write_scene(path, scene):
     path.parent.mkdir(parents=True, exist_ok=True)

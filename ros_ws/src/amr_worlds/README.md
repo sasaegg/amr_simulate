@@ -47,9 +47,6 @@ shelves:                       # 選填。貨架（長方體）
 obstacles:                     # 選填。障礙物
   - {type: box, pos: [7, 4], yaw: 0.5, size: [1.0, 1.0, 1.0]}
   - {type: cylinder, pos: [17, 12], radius: 0.3, height: 1.2}
-
-spawn:                         # 選填。車輛出生位姿
-  amr1: [1, 1, 0]              # [x, y, yaw]
 ```
 
 | 元素 | 欄位 | 必填 | 預設 | 說明 |
@@ -65,7 +62,6 @@ spawn:                         # 選填。車輛出生位姿
 | （box） | `size` | ✅ | | `[長, 寬, 高]`，皆 > 0 |
 | （box） | `yaw` | | `0` | 繞 z 軸旋轉 |
 | （cylinder） | `radius`、`height` | ✅ | | 皆 > 0 |
-| `spawn` | `<robot_id>` | | | `[x, y, yaw]` |
 
 自動產生、不必寫在 YAML 裡：
 
@@ -78,7 +74,7 @@ spawn:                         # 選填。車輛出生位姿
 
 - 必填欄位存在、型別正確（數字不接受 `true`／`false`）、尺寸 > 0。
 - 元素在地板範圍內：牆看兩端點；貨架與 box 看旋轉後的四個角；圓柱看半徑範圍。
-- 出生點距外牆內側面與每個元素的佔地邊緣都 **≥ 0.35 m**（訊息會指出衝突的元素，例如 `spawn.amr1: 距 obstacles[0] 僅 0.20 m`）。
+- **場景不定義車輛出生點**：世界不知道有哪些車，出生點寫在車子系統的 `docker/amr_sim/config/robot.yaml`（`sim.spawn`）。場景出現 `spawn` 欄位時會報錯提醒，而不是默默忽略。
 
 ## 產生的 SDF 結構
 
