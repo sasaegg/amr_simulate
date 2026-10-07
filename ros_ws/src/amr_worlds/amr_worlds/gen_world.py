@@ -336,3 +336,7 @@ def main(argv=None):
 
     print(f'gen_world: 已寫入 {out_path}')
     return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
