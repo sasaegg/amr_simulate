@@ -165,6 +165,58 @@ cd docker/amr_sim
 
 `shapes.sdf` 只有幾個簡單幾何體，llvmpipe 用多核心 CPU 就應付得來；差距會在倉庫場景加上 gpu_lidar（每秒 10 次深度渲染）時才明顯，屆時可再比較。軟體模式的代價是吃 CPU、RTF 掉到 1 以下（模擬比真實時間慢）。
 
+## 補充：容器間 DDS 互通與 `ipc: host` 實驗（task 2.5）
+
+ROS 2 Humble 預設 RMW 是 `rmw_fastrtps_cpp`（Fast DDS）。
+
+| 實驗 | talker | listener | `ros2 topic list` | listener 收到資料 |
+|---|---|---|---|---|
+| A | 長駐容器（`ipc: host`） | `docker compose run`（`ipc: host`） | 有 `/chatter` | ✅ 每秒一則 |
+| B | 同上 | `docker run`，**沒有** `--ipc host`（其餘相同） | **有 `/chatter`** | ❌ 5 秒內 0 則 |
+| C | 同上 | 同 B，但以 XML profile 強制只用 UDPv4 | 有 | ✅ |
+
+`/dev/shm` 中 Fast DDS 的共享記憶體檔（`fastrtps_*`）：
+
+| 位置 | 數量 |
+|---|---|
+| 長駐容器（`ipc: host`） | 17 |
+| 主機 | 17（同一份） |
+| 獨立 IPC 的容器 | 0（另一個 64 MB 的空 tmpfs） |
+
+**原因**：
+
+```
+① 探索：UDP multicast → host 網路下成功 → topic list 看得到
+② 資料：Fast DDS 判斷對方在同一台主機 → 自動改走 shared memory（比 UDP 快）
+        → talker 寫進自己 IPC namespace 的 /dev/shm
+        → listener 到自己的 /dev/shm 找 → 不同的 tmpfs → 找不到
+        → 沒有任何錯誤訊息，資料靜靜消失
+```
+
+Docker 預設每個容器有獨立的 IPC namespace，`/dev/shm` 也各自獨立（預設只有 64 MB）。`ipc: host` 讓容器共用主機的 IPC namespace，所有容器與主機上的 ROS 程序看到同一個 `/dev/shm`；附帶好處是 `/dev/shm` 不再受 64 MB 限制（影像、點雲等大訊息會用到）。
+
+**其他解法**：
+- 強制 Fast DDS 只用 UDP（實驗 C 的 XML profile：`useBuiltinTransports=false` + 只宣告 UDPv4 transport，經 `FASTRTPS_DEFAULT_PROFILES_FILE` 載入）——犧牲同主機的傳輸效能。較新的 Fast DDS（2.12+，ROS 2 Jazzy）可直接用環境變數 `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`；Humble 的 Fast DDS 2.6 不支援。
+- 改用其他 RMW（如 Cyclone DDS），各家行為不同。
+
+本專案選 `ipc: host`：設定最少、同主機效能最好，且開發機上的隔離需求低。
+
+實驗 C 用的 profile：
+
+```xml
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor><transport_id>udp</transport_id><type>UDPv4</type></transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="udp_only" is_default_profile="true">
+    <rtps>
+      <userTransports><transport_id>udp</transport_id></userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>
+```
+
 ## 面試追問
 
 **Q：compose 和 docker run 差在哪？**
@@ -184,6 +236,9 @@ A：啟動容器與啟動程式分離，可反覆 launch／停止、多個終端
 
 **Q：`docker exec` 進去的程序和容器主程式是什麼關係？**
 A：exec 是從外部把新程序放進容器的 namespace，不是 PID 1 的子程序（容器內 `ps` 看到它的 PPID 是 0），也不經過 entrypoint，所以 ROS 環境要靠 `.bashrc` 或容器層級的環境變數（env_file）。
+
+**Q：兩個 ROS 2 容器「看得到 topic 但收不到資料」，可能是什麼原因？怎麼查？**
+A：最常見是 Fast DDS 的 shared memory 傳輸：探索走 UDP 所以看得到 topic，但同主機的資料走 `/dev/shm`，容器 IPC namespace 不同就讀不到，而且不報錯。我實測重現過：拿掉 `ipc: host` 後 listener 5 秒收 0 則，檢查兩邊 `/dev/shm`，一邊有 17 個 `fastrtps_*` 檔、一邊是空的；強制只用 UDP 就恢復。解法是 `ipc: host` 或限制 Fast DDS 只用 UDP。其他要檢查的還有 `ROS_DOMAIN_ID` 是否一致、QoS 是否相容（例如 reliable 對 best_effort）。
 
 **Q：沒有 GPU 的機器怎麼跑？**
 A：用疊加檔：`-f compose.yaml -f compose.software.yaml`，以 `!reset` 拿掉 GPU 要求，把 GLVND vendor 換成 mesa 並設 `LIBGL_ALWAYS_SOFTWARE=1`，改用 llvmpipe 以 CPU 繪圖。不改主檔、切換只差一個 `-f`。實測簡單場景 RTF 約 0.9、CPU 55%。
