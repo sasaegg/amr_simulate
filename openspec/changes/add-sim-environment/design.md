@@ -97,7 +97,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - `amr_bringup`（ament_python）：
   - `sim.launch.py`：參數 `config`（`sim.yaml` 路徑，可省略）、`world`（預設 `warehouse_small`）、`robot_id`（預設 `amr1`）、`headless`（預設 false），依「套件預設 ← `sim.yaml` ← 命令列」合併（合併邏輯為可單元測試的純函式）。啟動 `ign gazebo`（headless 時 `-s --headless-rendering`，以 EGL 離屏渲染）→ 由場景 YAML 讀取 spawn（edited world 退回同名去 `_edited` 的 YAML，再退回原點）→ `ros_gz_sim create` → `ros_gz_bridge`（YAML 設定，由 robot_id 產生）→ `robot_state_publisher`（namespace、`frame_prefix: <id>/`、`use_sim_time`）→ watchdog。生成車輛的部分包成 `spawn_robot(robot_id, pose)`，多車時迴圈呼叫。
   - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入（可不等真實時間、不啟動 ROS 即測試）；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。理由：Fortress diff-drive 無逾時參數，teleop 當掉時車會持續前進——deadman 設計。
-  - bridge：`/clock`（gz→ros）、`/<id>/odom`、`/<id>/scan`、`/<id>/imu`、`/<id>/joint_states`、`/tf`（diff-drive 的 odom tf，gz→ros）、`/<id>/cmd_vel_gz`（ros→gz）。
+  - bridge：`amr_bringup/bridge.py` 的 `bridge_config(robot_id, include_clock=True)` 產生 parameter_bridge 的 YAML（`config_file` 參數只吃檔案，由 `write_bridge_config` 寫出）；Fortress 型別前綴為 `ignition.msgs.`；多車時只讓一座 bridge 轉送 `/clock`（`include_clock=False`）；有測試比對 Gazebo 端 topic 與 xacro 設定一致。`/clock`（gz→ros）、`/<id>/odom`、`/<id>/scan`、`/<id>/imu`、`/<id>/joint_states`、`/tf`（diff-drive 的 odom tf，gz→ros）、`/<id>/cmd_vel_gz`（ros→gz）。
 
 TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_link, imu_link, 輪}`；子專案 2 的 slam_toolbox 再加 `map → amr1/odom`（REP-105：odom 連續會漂移、map 不漂移會跳動）。
 
