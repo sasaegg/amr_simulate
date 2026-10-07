@@ -5,7 +5,7 @@
 ## 1. 主機準備
 
 - [x] 1.1 （筆記 00）`git init`；建立 `.gitattributes`（`* text=auto eol=lf`）、`.gitignore`（`build/`、`install/`、`log/`、`__pycache__/`、`.pytest_cache/`、`.env.local`）、`docs/學習筆記/README.md` 目錄頁與 `00-git與換行設定.md`；把現有 `openspec/`、`docs/開發摘要.md` 一併納入首次 commit。驗證：`git status` 乾淨、`git log` 有首次 commit、`git check-attr eol -- openspec/config.yaml` 顯示 `lf`
-- [ ] 1.2 （筆記 01）使用者執行 `sudo usermod -aG docker $USER` 後重新登入；筆記說明 socket 權限、docker 群組等同 root、rootless 替代方案。驗證：`id -nG` 含 `docker`、不加 sudo 執行 `docker run --rm hello-world` 成功
+- [x] 1.2 （筆記 01）使用者執行 `sudo usermod -aG docker $USER` 後重新登入；筆記說明 socket 權限、docker 群組等同 root、rootless 替代方案。驗證：`id -nG` 含 `docker`、不加 sudo 執行 `docker run --rm hello-world` 成功
 - [ ] 1.3 （筆記 02）使用者安裝 `nvidia-driver-595-open` 並重開機；筆記說明 kernel 層／使用者層、open kernel module、Secure Boot 與 MOK、PRIME `on-demand`、登入後 session 類型。驗證：`nvidia-smi` 顯示 RTX 3060 與驅動版本、`prime-select query` 輸出、`echo $XDG_SESSION_TYPE` 記錄於筆記
 - [ ] 1.4 （筆記 03）使用者加入 NVIDIA Container Toolkit apt 來源、安裝 `nvidia-container-toolkit`、執行 `sudo nvidia-ctk runtime configure --runtime=docker` 並重啟 docker；筆記說明 toolkit 注入機制、`daemon.json` 變化、為何映像不裝驅動、Intel/Mesa 對照。驗證：`cat /etc/docker/daemon.json` 含 `nvidia` runtime、`docker run --rm --gpus all ubuntu nvidia-smi` 顯示 RTX 3060
 

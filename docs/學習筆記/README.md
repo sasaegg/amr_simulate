@@ -11,7 +11,7 @@
 | # | 主題 | 對應 task |
 |---|---|---|
 | 00 | [git 與換行設定](00-git與換行設定.md) | 1.1 |
-| 01 | docker 群組 | 1.2 |
+| 01 | [docker 群組](01-docker群組.md) | 1.2 |
 | 02 | NVIDIA 驅動 | 1.3 |
 | 03 | NVIDIA Container Toolkit | 1.4 |
 | 04 | Dockerfile | 2.1 |
