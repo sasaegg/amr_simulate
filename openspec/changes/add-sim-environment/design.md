@@ -5,9 +5,9 @@
 專案從零開始（前一版以 WSL2 為前提的程式與 change 已刪除）。動機見 proposal.md；需求見 specs/。
 
 主機現況（2026-10-06 實查）：
-- Ubuntu 22.04.5，桌面為 Wayland session（GNOME，XWayland 提供 `DISPLAY=:0`）
+- Ubuntu 22.04.5，GNOME on **Xorg**（`DISPLAY=:0`）。原本為 Wayland，但筆電的 HDMI 輸出接在 NVIDIA 獨顯上，Wayland（mutter 42）下外接螢幕黑畫面，故以 `/etc/gdm3/custom.conf` 的 `WaylandEnable=false` 改用 Xorg（Xorg 以 reverse PRIME 讓 NVIDIA-G0 負責 HDMI 輸出）
 - Docker Engine 29.8 已安裝並執行，但使用者尚未加入 `docker` 群組
-- 雙顯卡：Intel Alder Lake-P 內顯 + NVIDIA GA106M（RTX 3060 Mobile）；尚未安裝 NVIDIA 驅動；`ubuntu-drivers` 推薦 `nvidia-driver-595-open`
+- 雙顯卡：Intel Alder Lake-P 內顯 + NVIDIA GA106M（RTX 3060 Mobile）；已安裝 `nvidia-driver-580-open`（580.178.04，預編譯模組 `linux-modules-nvidia-580-open-generic-hwe-22.04`）；`ubuntu-drivers` 原推薦 595-open，排查黑畫面過程中改用 580-open 並維持
 - Secure Boot 已關閉（安裝驅動不需 MOK 簽章）
 - 20 核、30 GB RAM、磁碟可用 219 GB
 
@@ -34,11 +34,11 @@
 ## Decisions
 
 ### D1：主機準備順序
-`git init` → 加入 `docker` 群組 → NVIDIA 驅動 `nvidia-driver-595-open` → NVIDIA Container Toolkit（`nvidia-ctk runtime configure --runtime=docker`）→ X 存取權確認。
+`git init` → 加入 `docker` 群組 → NVIDIA 驅動 `nvidia-driver-580-open` → NVIDIA Container Toolkit（`nvidia-ctk runtime configure --runtime=docker`）→ X 存取權確認。
 - 驅動必須在 toolkit 之前：toolkit 執行時注入的是主機已安裝的驅動函式庫。
 - 選 `-open` kernel module：Turing 之後架構 NVIDIA 官方建議使用開源 kernel module；RTX 3060 為 Ampere。
 - `docker` 群組等同 root 權限（可掛載 `/` 進容器），筆記中說明此取捨與 rootless Docker 替代方案。
-- X 存取權：容器以與主機相同 UID 執行（見 D3），GNOME XWayland 通常已允許 `SI:localuser:<使用者>`；實作時先以 `xhost` 檢查，只有不允許時才加 `xhost +SI:localuser:<使用者>`（優於 `+local:`，不開放給本機其他使用者），並包成 `scripts/allow_x.sh`，不修改系統開機設定。
+- X 存取權：容器以與主機相同 UID 執行（見 D3）。實查（2026-10-07，Xorg）`xhost` 已含 `SI:localuser:myuser`，因此預期不需額外放寬；task 2.3 以 xeyes 實測確認，只有不允許時才加 `xhost +SI:localuser:<使用者>`（優於 `+local:`，不開放給本機其他使用者），並包成 `scripts/allow_x.sh`，不修改系統開機設定。
 
 ### D2：GPU 透過 NVIDIA Container Toolkit 注入，映像內不裝驅動
 compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all, capabilities: [gpu]}]` 要求 GPU，並設定 `NVIDIA_DRIVER_CAPABILITIES=all`。
@@ -93,7 +93,7 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 
 ## Risks / Trade-offs
 
-- [安裝 NVIDIA 驅動後登入畫面改為 Xorg 或 Wayland 不定] → 兩者皆可（Wayland 下經 XWayland）；筆記說明以 `echo $XDG_SESSION_TYPE` 確認。若 GDM 因驅動停用 Wayland 亦不影響本專案。
+- [外接螢幕接在 NVIDIA 時 Wayland 黑畫面]（已發生）→ 改用 Xorg（`WaylandEnable=false`）；容器只依賴標準 X11，不受影響。日後升級到 Ubuntu 24.04（mutter 較新）可再評估 Wayland。
 - [PRIME offload 設定後仍由 Intel 繪圖] → 以 `glxinfo -B` 驗證 renderer；若失敗，檢查 `NVIDIA_DRIVER_CAPABILITIES` 是否含 graphics、`prime-select query` 是否為 `on-demand` 或 `nvidia`。
 - [headless 模式的 EGL 離屏渲染在此驅動組合下失敗] → 冒煙測試先嘗試 `--headless-rendering`；不行則改為在有 `DISPLAY` 的環境下以 `-s` 執行（server 端仍會以 GPU 渲染光達），並記錄於踩坑紀錄。
 - [`deploy: !reset` 需要 compose v2.24+] → 主機為 Docker 29.8 附帶的 compose plugin，符合；筆記註明版本需求。

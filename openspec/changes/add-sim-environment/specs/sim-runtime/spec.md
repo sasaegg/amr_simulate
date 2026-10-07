@@ -25,7 +25,7 @@
 - **THEN** Gazebo 載入 `warehouse_small_edited.sdf`
 
 ### Requirement: 容器以標準 X11 取得顯示
-模擬容器 SHALL 只透過標準 Linux X11 機制（`DISPLAY` 環境變數與 `/tmp/.X11-unix` socket）把圖形畫面送到主機的 X server（Wayland 桌面下為 XWayland）；容器內程序 SHALL 以與主機使用者相同的 UID 執行。
+模擬容器 SHALL 只透過標準 Linux X11 機制（`DISPLAY` 環境變數與 `/tmp/.X11-unix` socket）把圖形畫面送到主機的 X server；容器內程序 SHALL 以與主機使用者相同的 UID 執行。
 
 #### Scenario: 在主機桌面顯示
 - **WHEN** 使用者在 Ubuntu 桌面的終端機中啟動模擬

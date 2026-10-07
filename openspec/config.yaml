@@ -10,7 +10,7 @@ schema: spec-driven
 #     Write all artifacts in Spanish
 context: |
   所有 artifact 以繁體中文撰寫（程式碼、識別字、SHALL/WHEN/THEN 等規格關鍵字維持英文）。
-  執行環境：Ubuntu 22.04 實機（筆電雙顯卡：Intel 內顯 + NVIDIA RTX 3060 Mobile）+ 原生 Docker Engine + NVIDIA Container Toolkit + docker compose（network_mode: host、ipc: host）。容器只用標準 X11 送畫面到主機 X server（Wayland 下經 XWayland），GPU 繪圖以 PRIME render offload 交給 NVIDIA；保留軟體渲染疊加檔作為無 GPU 時的退路。
+  執行環境：Ubuntu 22.04 實機（筆電雙顯卡：Intel 內顯 + NVIDIA RTX 3060 Mobile）+ 原生 Docker Engine + NVIDIA Container Toolkit + docker compose（network_mode: host、ipc: host）。容器只用標準 X11 送畫面到主機 X server（GNOME on Xorg；HDMI 外接螢幕接在 NVIDIA，Wayland 下會黑畫面，已設 WaylandEnable=false），GPU 繪圖以 PRIME render offload 交給 NVIDIA；保留軟體渲染疊加檔作為無 GPU 時的退路。
   本專案兼作學習用途：每個實作步驟須在 docs/學習筆記/ 留一份筆記（為什麼、做了什麼、怎麼驗證、面試追問、踩坑紀錄）。
   ROS 2 Humble + Gazebo Fortress（ros_gz），不使用 Gazebo Classic。
   多車預留：所有車輛 topic / TF frame / Nav2 實例必須帶 namespace（第一台為 amr1），API 皆帶 robot_id；第一版只跑一台。
