@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'cmd_vel_watchdog = amr_bringup.cmd_vel_watchdog:main',
         ],
     },
 )
