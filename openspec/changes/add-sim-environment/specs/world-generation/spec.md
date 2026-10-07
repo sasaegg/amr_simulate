@@ -2,7 +2,7 @@
 
 ## Purpose
 
-讓使用者以人類可讀的 YAML 檔描述倉庫場景（尺寸、牆、貨架、障礙物、車輛出生點），並轉換成 Gazebo Fortress 可直接載入的 world，使地圖可被編輯、比對與版本控制。
+讓使用者以人類可讀的 YAML 檔描述倉庫場景（尺寸、牆、貨架、障礙物），並轉換成 Gazebo Fortress 可直接載入的 world，使地圖可被編輯、比對與版本控制。
 
 ## ADDED Requirements
 
@@ -42,15 +42,8 @@
 - **WHEN** 一面牆未指定 `thickness` 與 `height`
 - **THEN** 系統使用預設厚度 0.2 m、高度 2.0 m
 
-### Requirement: 定義車輛出生點
-場景 YAML SHALL 透過 `spawn` 欄位以 `robot_id: [x, y, yaw]` 定義每台車的出生位姿（yaw 以弧度表示）；啟動模擬時車輛 SHALL 出現在該位姿。
-
-#### Scenario: 車輛於指定位姿出生
-- **WHEN** 場景定義 `spawn: {amr1: [1, 1, 0]}` 並啟動模擬
-- **THEN** `amr1` 出現在 (1, 1) 且車頭朝 +x 方向
-
 ### Requirement: 輸入驗證與錯誤回報
-系統 SHALL 在產生前驗證 YAML；遇到缺少必要欄位、型別錯誤、數值不合理（尺寸 ≤ 0）、元素超出場景邊界、或 spawn 點與任何元素的距離小於 0.35 m 時，SHALL 不輸出 world 檔，並以非零結束碼回報指出問題元素與欄位的錯誤訊息。
+系統 SHALL 在產生前驗證 YAML；遇到缺少必要欄位、型別錯誤、數值不合理（尺寸 ≤ 0）、元素超出場景邊界、或含有已移除的 `spawn` 欄位時，SHALL 不輸出 world 檔，並以非零結束碼回報指出問題元素與欄位的錯誤訊息。
 
 #### Scenario: 缺少必要欄位
 - **WHEN** YAML 缺少 `size` 欄位
@@ -60,9 +53,9 @@
 - **WHEN** 一個貨架的位置在場景 `size` 範圍之外
 - **THEN** 指令以非零碼結束，訊息指出是哪一個貨架（索引）超出邊界
 
-#### Scenario: 出生點太靠近障礙物
-- **WHEN** `amr1` 的出生點落在某障礙物佔地範圍內，或與其邊緣距離小於 0.35 m
-- **THEN** 指令以非零碼結束，訊息指出 `amr1` 的出生點與哪個元素衝突
+#### Scenario: 場景不再定義出生點
+- **WHEN** 場景 YAML 含有 `spawn` 欄位
+- **THEN** 指令以非零碼結束，訊息指出出生點已改由車子系統的 `robot.yaml` 設定
 
 #### Scenario: 驗證失敗不覆蓋既有輸出
 - **WHEN** 已存在 `warehouse_small.sdf`，使用者把 YAML 改壞後執行產生指令

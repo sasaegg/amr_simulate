@@ -16,10 +16,13 @@
 - Fortress 外掛名稱為 `ignition-gazebo-*`、感測器 frame 用 `<ignition_frame_id>`（`gz-sim-*` 是 Garden 以後的名稱）
 - Fortress diff-drive 外掛沒有指令逾時參數
 
+**2026-10-08 架構調整**：原本一個 launch 同時啟動 Gazebo、車輛與 ROS 節點，世界與車子系統混在一起。改為以「真車」為準劃分：`robot` 容器是之後部署到真車上的車子系統，由中控 launch 依 `hardware`（`sim`／`real`）帶起虛擬或真實驅動；`sim` 容器只是取代「真實世界」的 Gazebo。虛擬驅動對車子系統提供與真車驅動相同的 topic（硬體介面＝ simulated-amr spec），所以 SLAM、Nav2 等上層不需要知道下面是模擬還是真車。光達仍由 Gazebo 依車輛在世界中的實際位置計算——真實光達量的也是實際位置，定位系統才能拿它修正自己估計的位置。task 5.1–5.4 的 watchdog、bridge、launch 成果沿用並重新分配到新的套件。
+
 ## Goals / Non-Goals
 
 **Goals:**
-- 在這台筆電上以 `up_gpu.sh` 啟動長駐容器、`exec.sh` 進入後 launch，看到 GPU 加速的倉庫與車，鍵盤可開車。
+- 在這台筆電上以 `up_gpu.sh` 啟動 `sim`、`robot` 兩個長駐容器，分別 `exec.sh sim` 啟動世界、`exec.sh robot` 啟動車子系統，看到 GPU 加速的倉庫與車，鍵盤可開車。
+- 車子系統與模擬分離：robot 側套件不依賴 Gazebo，切換 `hardware` 即可從模擬換成真車驅動。
 - 映像不綁定主機驅動版本；同一份 compose 可用於任何裝有 NVIDIA 驅動與 Container Toolkit 的 Ubuntu 主機。
 - 車輛介面（topic／frame 命名）一次定型，後續子專案直接沿用。
 - 每一步可被解釋：學習筆記記錄原因、驗證與面試追問。
@@ -29,7 +32,8 @@
 - 多台車同時模擬（只預留 namespace 與 spawn 結構）。
 - 懸吊與不平地形：車輛為剛性（驅動輪與支撐球固定於車身），地板為平面。驅動輪彈簧懸吊（prismatic joint + 彈簧阻尼）與產生器支援斜坡／門檻，之後以獨立 change 一併實作並驗證（需先確認 Fortress 對 joint 彈簧的支援）。
 - 圖形化建築編輯器。
-- 真實車輛驅動／硬體介面。
+- 真實車輛驅動：只定義 `hardware: real` 的入口（目前回報尚未提供），驅動本身之後實作。
+- 中控的監控功能（感測器健康檢查、異常重啟、lifecycle 管理）：第一版中控是 launch 檔，監控之後以獨立 change 加入。
 - 自動修改主機系統設定（驅動、toolkit、群組由使用者依筆記親手執行）。
 
 ## Decisions
@@ -67,48 +71,66 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 ### D5：compose 結構
 - compose 檔放在 `docker/amr_sim/compose.yaml`：映像材料、執行設定、compose 與腳本集中於同一資料夾。檔內相對路徑以該資料夾為基準（`context: .`、`./config`、`../../ros_ws`）。compose 只往上層找設定檔，在專案根目錄不能直接下 `docker compose`，以腳本為主要入口；手動操作時先 `cd docker/amr_sim`。
 - `name: amr_sim`：明確固定專案名稱（容器名前綴、`ps`／`down` 的歸屬標籤），不依賴資料夾名稱；資料夾改名時才不會讓舊容器變成孤兒。之後其他映像的 compose 必須使用不同名稱。
-- 不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/amr_sim/config/`。
+- 不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/amr_sim/config/`。compose 也不放任何指向原始碼路徑的環境變數。
 - 設定分三處，各有職責：套件（程式與預設值）、`docker/amr_sim/config/`（本次部署／執行的設定）、compose（基礎環境與建置參數的預設值）。
-- **`docker/amr_sim/config/`**（以可寫方式掛載到容器 `/config`）：
-  - `ros.env`：`ROS_DOMAIN_ID` 等 ROS 環境變數，以 compose `env_file` 載入。選 env_file 而不是讓 entrypoint 讀取：`docker exec` 不執行 entrypoint，只有容器層級的環境變數能讓 launch、exec 進去的 shell、之後的 nav／backend 容器都拿到同一個值。
-  - `sim.yaml`：`world`、`robot_id`、`headless`，由 launch 讀取。第一版用單數 `robot_id`（多車為 Non-Goal），多車時再改為清單。
+- **`docker/amr_sim/config/`**（以可寫方式掛載到兩個容器的 `/config`）：
+  - `ros.env`：`ROS_DOMAIN_ID` 等 ROS 環境變數，兩個容器都以 compose `env_file` 載入。選 env_file 而不是讓 entrypoint 讀取：`docker exec` 不執行 entrypoint，只有容器層級的環境變數能讓 launch、exec 進去的 shell 都拿到同一個值。
+  - `world.yaml`（sim 容器）：`world`、`headless`。
+  - `robot.yaml`（robot 容器）：`robot_id`、`hardware`（`sim`／`real`，**必須明確設定，沒有預設值**，避免真車誤以模擬模式啟動或反之）、`sim.spawn`（`[x, y, yaw]`，只在 `hardware: sim` 時使用）。第一版用單數 `robot_id`（多車為 Non-Goal）。robot_id 只有 robot 側需要——世界不知道有哪些車。
   - 可寫掛載：程式執行中可能更新設定；寫入的變更會出現在 `git status`，由使用者決定是否 commit。執行產生的資料（地圖、資料庫）屬不同類別，由後續子專案另行規劃存放位置。
-  - 覆寫順序：套件預設值 ← `sim.yaml` ← launch 命令列參數。
-- 每個 service 完整展開寫出，不使用 `x-` 擴充欄位與 YAML anchor：一目了然，也避開 `<<:` 只做淺層合併（service 自己寫 `environment` 會整個取代共用內容）的陷阱。之後加入 nav／backend 時再評估是否抽出共用設定。
-- `sim` service：`build: {context: ., args: {USER_UID: ${USER_UID:-1000}, USER_GID: ${USER_GID:-1000}}}`、image `amr-sim:humble`、`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`../../ros_ws:/ros_ws`、`./config:/config`、`env_file: ./config/ros.env`、`command: ["sleep", "infinity"]`。
-- 長駐容器：主程式為 `sleep infinity`，容器不會自行結束；模擬由使用者 exec 進去後手動 `ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。啟動容器與啟動模擬分離，可反覆啟動／停止 launch 而不重建容器。`init: true` 讓 tini 為 PID 1、sleep 為子程序，`docker compose down` 約 0.1 秒完成。CMD 若維持 `bash`，`up` 不配置終端機，bash 讀到 EOF 立即結束、容器隨之退出。
-- `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與其他容器直接可見。
-- `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
-- `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`；不設 `MESA_GL_VERSION_OVERRIDE`：實測 llvmpipe（Mesa 23.2）已提供 OpenGL 4.5 core，高於 ogre2 需要的 3.3（舊版設定是為了 WSL d3d12 只回報 4.2 的問題）。放在 `docker/amr_sim/`，使用方式 `docker compose -f compose.yaml -f compose.software.yaml up -d sim`。
+  - 覆寫順序：套件預設值 ← 設定檔 ← launch 命令列參數（兩個 launch 相同；命令列值為空字串視為沒給；未知的鍵報錯）。
+- 每個 service 完整展開寫出，不使用 `x-` 擴充欄位與 YAML anchor：一目了然，也避開 `<<:` 只做淺層合併的陷阱。
+- `sim` service：`build: {context: ., args: {USER_UID: ${USER_UID:-1000}, USER_GID: ${USER_GID:-1000}}}`、image `amr-sim:humble`；`robot` service：同 image、**不定義 build**（同一映像只建置一次）。兩者皆 `network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2；sim 跑 Gazebo，robot 之後跑 RViz，兩者都需要 OpenGL）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`../../ros_ws:/ros_ws`、`./config:/config`、`env_file: ./config/ros.env`、`command: ["sleep", "infinity"]`。
+- 長駐容器：主程式為 `sleep infinity`，容器不會自行結束；使用者 exec 進去後手動 launch。啟動容器與啟動程序分離，可反覆啟動／停止 launch 而不重建容器。`init: true` 讓 tini 為 PID 1、sleep 為子程序，`docker compose down` 約 0.1 秒完成。CMD 若維持 `bash`，`up` 不配置終端機，bash 讀到 EOF 立即結束、容器隨之退出。
+- `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與兩個容器直接互相看見。
+- `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；兩個容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」（task 2.5 實測）。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
+- `compose.software.yaml` 疊加檔：對 `sim`、`robot` 兩者以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`；不設 `MESA_GL_VERSION_OVERRIDE`：實測 llvmpipe（Mesa 23.2）已提供 OpenGL 4.5 core，高於 ogre2 需要的 3.3（舊版設定是為了 WSL d3d12 只回報 4.2 的問題）。
 
 ### D5a：便利腳本
 每個映像一個資料夾 `docker/<映像名>/`（目前只有 `amr_sim`），內含該映像的 Dockerfile、entrypoint、config、compose 與便利腳本。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")"` 到腳本所在資料夾（compose.yaml 就在這裡，任何目錄執行皆可）：
 - `build.sh`：`export USER_UID=$(id -u) USER_GID=$(id -g)` 後 `docker compose build "$@"`——自動帶入正確 UID，免手動 export。
-- `up_gpu.sh`：`docker compose up -d sim "$@"`，在背景啟動長駐容器（GPU 繪圖，不啟動模擬）。修改 Dockerfile 後用 `up_gpu.sh --build`。
-- `up_cpu.sh`：`docker compose -f compose.yaml -f compose.software.yaml up -d sim "$@"`，同上但改用軟體渲染。兩者互相切換時 compose 偵測到設定不同，自動重建容器。
-- `exec.sh`：`docker compose exec sim bash`，固定開互動式 bash（必定讀 `~/.bashrc`，ROS 環境一定可用）；可同時開多個終端機各自進入（launch、teleop、RViz）。
-- 刻意不做：`run.sh`（長駐容器流程下改為 exec 進去操作；跨容器測試時手動 `docker compose run --rm sim bash`）、`down.sh`（手動 `docker compose down` 或 `docker stop amr_sim-sim-1`）、`sim.sh`（launch 由使用者在容器內手動執行）、`allow_x.sh`（預期不需要，task 2.3 驗證失敗才加）、`test.sh`（第 6 組測試齊全後再決定）。
+- `up_gpu.sh`：`docker compose up -d "$@"`，在背景啟動 `sim`、`robot` 兩個長駐容器（GPU 繪圖，不啟動任何程序）。修改 Dockerfile 後用 `up_gpu.sh --build`。
+- `up_cpu.sh`：`docker compose -f compose.yaml -f compose.software.yaml up -d "$@"`，同上但改用軟體渲染。兩者互相切換時 compose 偵測到設定不同，自動重建容器。
+- `exec.sh <sim|robot>`：`docker compose exec <service> bash`，固定開互動式 bash（必定讀 `~/.bashrc`，ROS 環境一定可用）。**必須指定容器**，沒給或給錯時顯示用法並以非零碼結束，不做預設，避免進錯容器。可同時開多個終端機各自進入。
+- 日常流程：`up_gpu.sh` → `exec.sh sim`（`ros2 launch amr_worlds world.launch.py config:=/config/world.yaml`）→ `exec.sh robot`（`ros2 launch amr_bringup robot.launch.py config:=/config/robot.yaml`）→ 另開 `exec.sh robot` 開車、RViz。
+- 刻意不做：`run.sh`、`down.sh`（手動 `docker compose down`）、`sim.sh`（launch 由使用者在容器內手動執行）、`allow_x.sh`（task 2.3 驗證不需要）、`test.sh`。
 
-### D6：工作區三個套件
-依「變動原因」切分：地圖、車、組裝各自獨立；子專案 2 起只在 bringup 層新增 launch。
+### D6：工作區套件與三個 launch
+依「變動原因」與「部署位置」切分：
 
-- `amr_worlds`（ament_python）：`gen_world`（`ros2 run amr_worlds gen_world <yaml>`）。純 Python：pyyaml 讀檔 → 自寫 schema 驗證（欄位少，不引入 jsonschema）→ `xml.etree` 輸出 SDF。固定元素順序與數值格式以保證輸出可重現。先寫到暫存檔、驗證全部通過後才取代目標檔，確保失敗時不動既有輸出。`name` 只允許英數字、底線、連字號（會用來當檔名，防止 `../` 路徑穿越）；數值欄位排除 bool（bool 是 int 的子類別）。邊界檢查：牆看兩端點，貨架／box 看旋轉後四角，圓柱看外接方框；出生點需距外牆內側面與各元素佔地邊緣 ≥ 0.35 m（點到旋轉矩形距離以「轉到矩形座標系」計算）。外牆放在地板外側、內側面貼齊邊界，使可用空間剛好等於 `size`；地板為 0.1 m 厚的 box，頂面在 z = 0；各物體 z = 高度／2。數值以固定 6 位小數輸出並去尾 0，保證可重現。暫存檔由 `mkstemp` 建立（權限 600），寫完改為 644 再 `os.replace`。牆為 box link（長度=兩點距離、中心=中點、yaw=atan2），貨架 box，障礙物 box／cylinder，全部放在一個 `static` model 中、每個元素一個 link，具 visual 與 collision。world 載入 `ignition-gazebo-physics-system`、`-user-commands-system`、`-scene-broadcaster-system`、`-sensors-system`（`render_engine` ogre2）、`-imu-system`。`.sdf` 納入版控；`*_edited.sdf` 同目錄，產生器只寫 `<name>.sdf`。launch 經環境變數 `AMR_WORLDS_DIR` 從原始碼目錄讀 world 與場景，改 YAML 不需 colcon build。
-- `amr_description`（ament_cmake，只安裝資料檔）：`urdf/amr.urdf.xacro`，參數 `robot_id`。`base_footprint`（地面投影）→ `base_link`（輪軸高度 0.08 m）；底盤 0.5×0.4×0.2 m（離地 0.03 m）、兩驅動輪（r 0.08、寬 0.04、y = ±0.22、continuous）、前後剛性支撐球（r 0.03、x = ±0.2、零摩擦、fixed）、`laser_link`（車頂上方，掃描平面約 0.26 m）、`imu_link`，各 link 具 visual／collision／inertial。**URDF 的 link／joint 名稱不帶前綴**；ROS 側 TF 前綴由 robot_state_publisher 的 `frame_prefix: <id>/` 加上（兩者都加會變成 `amr1/amr1/base_link`）；Gazebo 側不經 robot_state_publisher，外掛的 frame 參數以 `robot_id` 明確填入 `<id>/...`。名稱不含 `/` 也避免 Gazebo 內部以 link 名組 topic 路徑時出錯。外掛（Fortress 內建，`libignition-gazebo6-plugins`）：`ignition-gazebo-diff-drive-system`（輪距與輪半徑由模型尺寸計算；topic `/<id>/cmd_vel_gz`、odom `/<id>/odom` 30 Hz、tf `/<id>/tf`、frame `<id>/odom → <id>/base_footprint`；速度上限 ±1.0 m/s／±1.5 rad/s，加速度上限 ±2.5 m/s²／±5.0 rad/s²——停車時間 = watchdog 0.5 s + 1.0／2.5 = 0.9 s < spec 1 s；參數用 Fortress 的新名稱 `max_linear_velocity` 等，舊名 `max_velocity` 已棄用）、`ignition-gazebo-joint-state-publisher-system`（`/<id>/joint_states`）、`gpu_lidar`（`/<id>/scan`，360 樣本、角度 −π 到 π−1° 使間隔剛好 1° 且不重複 ±π、0.12–12 m、解析度 0.01 m、10 Hz、無雜訊）、`imu`（`/<id>/imu`，100 Hz）。URDF 轉 SDF 時 fixed joint 會被合併進根 link `base_footprint`（只剩 base_footprint 與兩輪 3 個 link；質心重算、感測器位姿換算、支撐球 mu=0 保留），`laser_link`／`imu_link` 在 Gazebo 中不再存在，所以感測器以 `<ignition_frame_id>` 明確指定 frame。gpu_lidar 以 GPU 深度影像換算距離，因此依賴渲染引擎——這是 ogre1 失效、以及需要 GPU 的原因。
-- `amr_bringup`（ament_python）：
-  - `sim.launch.py`：參數 `config`（`sim.yaml` 路徑，可省略）、`world`（預設 `warehouse_small`）、`robot_id`（預設 `amr1`）、`headless`（預設 false），依「套件預設 ← `sim.yaml` ← 命令列」合併（合併邏輯為可單元測試的純函式）。啟動 `ign gazebo`（headless 時 `-s --headless-rendering`，以 EGL 離屏渲染）→ 由場景 YAML 讀取 spawn（edited world 退回同名去 `_edited` 的 YAML，再退回原點）→ `ros_gz_sim create` → `ros_gz_bridge`（YAML 設定，由 robot_id 產生）→ `robot_state_publisher`（namespace、`frame_prefix: <id>/`、`use_sim_time`）→ watchdog。生成車輛的部分包成 `spawn_robot(robot_id, pose)`，多車時迴圈呼叫。
-  - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入（可不等真實時間、不啟動 ROS 即測試）；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。理由：Fortress diff-drive 無逾時參數，teleop 當掉時車會持續前進——deadman 設計。
-  - bridge：`amr_bringup/bridge.py` 的 `bridge_config(robot_id, include_clock=True)` 產生 parameter_bridge 的 YAML（`config_file` 參數只吃檔案，由 `write_bridge_config` 寫出）；Fortress 型別前綴為 `ignition.msgs.`；多車時只讓一座 bridge 轉送 `/clock`（`include_clock=False`）；有測試比對 Gazebo 端 topic 與 xacro 設定一致。`/clock`（gz→ros）、`/<id>/odom`、`/<id>/scan`、`/<id>/imu`、`/<id>/joint_states`、`/tf`（diff-drive 的 odom tf，gz→ros）、`/<id>/cmd_vel_gz`（ros→gz）。
+| 套件 | 職責 | 真車需要 |
+|---|---|---|
+| `amr_description` | 車輛模型 xacro（含 Gazebo 外掛與感測器設定，真車上 robot_state_publisher 會忽略 `<gazebo>` 標籤） | ✅ |
+| `amr_worlds` | 場景產生器、world、`world.launch.py`（世界） | ❌ |
+| `amr_bringup` | 車子系統中控 `robot.launch.py`；之後 SLAM、Nav2 加在這裡 | ✅ |
+| `amr_hw_sim` | 虛擬驅動 `sim_hardware.launch.py`、spawn、各元件 bridge 設定、watchdog、冒煙測試 | ❌ |
+| `amr_hw_real` | 真實驅動（之後） | ✅ |
+
+- `amr_worlds`（ament_python）：`gen_world`（`ros2 run amr_worlds gen_world <yaml>`）。純 Python：pyyaml 讀檔 → 自寫 schema 驗證（欄位少，不引入 jsonschema）→ `xml.etree` 輸出 SDF。固定元素順序與數值格式以保證輸出可重現。先寫到暫存檔、驗證全部通過後才取代目標檔，確保失敗時不動既有輸出。`name` 只允許英數字、底線、連字號（會用來當檔名，防止 `../` 路徑穿越）；數值欄位排除 bool（bool 是 int 的子類別）。邊界檢查：牆看兩端點，貨架／box 看旋轉後四角，圓柱看外接方框。**場景不再定義出生點**：出現 `spawn` 欄位時報錯，訊息指向 `robot.yaml`（不靜默忽略）。外牆放在地板外側、內側面貼齊邊界，使可用空間剛好等於 `size`；地板為 0.1 m 厚的 box，頂面在 z = 0；各物體 z = 高度／2。數值以固定 6 位小數輸出並去尾 0。暫存檔由 `mkstemp` 建立（權限 600），寫完改為 644 再 `os.replace`。牆為 box link（長度=兩點距離、中心=中點、yaw=atan2），貨架 box，障礙物 box／cylinder，全部放在一個 `static` model 中、每個元素一個 link，具 visual 與 collision。world 載入 `ignition-gazebo-physics-system`、`-user-commands-system`、`-scene-broadcaster-system`、`-sensors-system`（`render_engine` ogre2）、`-imu-system`。`.sdf` 納入版控；`*_edited.sdf` 同目錄，產生器只寫 `<name>.sdf`。
+  - `world.launch.py`：參數 `config`（`world.yaml`）、`world`（預設 `warehouse_small`）、`headless`（預設 false），三層合併的純函式放在 `amr_worlds/world_config.py`。world 檔從 `get_package_share_directory('amr_worlds')/worlds/` 讀取（不使用 `AMR_WORLDS_DIR`）：`--symlink-install` 下 share 裡既有檔案是指回原始碼的 symlink，修改即時生效；新增檔案（新場景、GUI 另存的 `_edited.sdf`）需執行一次 `colcon build`。啟動 `ign gazebo -r <world>`（headless 時加 `-s --headless-rendering`，以 EGL 離屏渲染），以及 `/clock` 的 parameter_bridge——時間屬於世界，不論幾台車都只有一個發布者。
+- `amr_description`（ament_cmake，只安裝資料檔）：`urdf/amr.urdf.xacro`，參數 `robot_id`。`base_footprint`（地面投影）→ `base_link`（輪軸高度 0.08 m）；底盤 0.5×0.4×0.2 m（離地 0.03 m）、兩驅動輪（r 0.08、寬 0.04、y = ±0.22、continuous）、前後剛性支撐球（r 0.03、x = ±0.2、零摩擦、fixed）、`laser_link`（車頂上方，掃描平面約 0.26 m）、`imu_link`，各 link 具 visual／collision／inertial。**URDF 的 link／joint 名稱不帶前綴**；ROS 側 TF 前綴由 robot_state_publisher 的 `frame_prefix: <id>/` 加上（兩者都加會變成 `amr1/amr1/base_link`）；Gazebo 側不經 robot_state_publisher，外掛的 frame 參數以 `robot_id` 明確填入 `<id>/...`。外掛（Fortress 內建，`libignition-gazebo6-plugins`）：`ignition-gazebo-diff-drive-system`（輪距與輪半徑由模型尺寸計算；topic `/<id>/cmd_vel_gz`、odom `/<id>/odom` 30 Hz、tf `/<id>/tf`、frame `<id>/odom → <id>/base_footprint`；速度上限 ±1.0 m/s／±1.5 rad/s，加速度上限 ±2.5 m/s²／±5.0 rad/s²——停車時間 = watchdog 0.5 s + 1.0／2.5 = 0.9 s < spec 1 s；參數用新名稱 `max_linear_velocity` 等，舊名 `max_velocity` 已棄用）、`ignition-gazebo-joint-state-publisher-system`（`/<id>/joint_states`）、`gpu_lidar`（`/<id>/scan`，360 樣本、角度 −π 到 π−1°、0.12–12 m、解析度 0.01 m、10 Hz、無雜訊）、`imu`（`/<id>/imu`，100 Hz）。URDF 轉 SDF 時 fixed joint 會被合併進根 link `base_footprint`，`laser_link`／`imu_link` 在 Gazebo 中不再存在，所以感測器以 `<ignition_frame_id>` 明確指定 frame。gpu_lidar 以 GPU 深度影像換算距離，因此依賴渲染引擎。
+- `amr_bringup`（ament_python，車子系統中控）：
+  - `robot.launch.py`：參數 `config`（`robot.yaml`）、`robot_id`（預設 `amr1`）、`hardware`（**無預設**）；三層合併與驗證的純函式在 `amr_bringup/robot_config.py`（`hardware` 只能是 `sim`／`real`、`sim.spawn` 為三個數字、預設 `[0, 0, 0]`）。啟動 `robot_state_publisher`（namespace `<id>`、`frame_prefix: <id>/`、robot_description 由 xacro 展開）；`use_sim_time` **由 `hardware` 決定**（sim → true），不另設，避免兩個設定矛盾。`hardware: sim` 時以套件名稱 include `amr_hw_sim` 的 `sim_hardware.launch.py`（`FindPackageShare` 在執行時才解析）；`hardware: real` 時報錯「尚未提供真車驅動」並以非零碼結束。
+  - **不依賴任何 `ros_gz*` 與 `amr_hw_sim`**（package.xml 不列；有測試檢查）：真車環境只安裝 `amr_bringup` + `amr_description` 即可，`hardware: real` 永遠不會去找模擬套件。
+- `amr_hw_sim`（ament_python，虛擬驅動）：
+  - `sim_hardware.launch.py`：參數 `robot_id`、`spawn`（由中控傳入）。每個虛擬元件是獨立節點，對應真車上的各個驅動（之後監控可個別處理）：
+    - **虛擬底盤**：spawn（xacro 展開後以 `ros_gz_sim create -string` 生成，不依賴 robot 側的 `/robot_description`）、`cmd_vel_watchdog`（＝假驅動板的指令逾時；`/<id>/cmd_vel` → `/<id>/cmd_vel_gz`）、底盤 bridge（cmd_vel_gz、odom、`/<id>/tf`→`/tf`、joint_states）。
+    - **虛擬光達**：只轉送 `/<id>/scan` 的 bridge（資料由 Gazebo gpu_lidar 依車輛實際位置計算）。
+    - **虛擬 IMU**：只轉送 `/<id>/imu` 的 bridge。
+  - spawn 生命週期（`amr_hw_sim/spawn.py` 節點）：從 Gazebo 的 service 清單找出 `/world/<名稱>/create`，**等待世界出現**（robot 比 world 先啟動也不會失敗，逾時則報錯）；若同名實體已存在（前一次車子系統停止後車體留在世界中），先呼叫 `/world/<名稱>/remove` 移除再生成——每次啟動狀態一致。世界中多於一個 world 時報錯要求指定。
+  - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。放在 sim 側：真車的馬達驅動板本身有指令逾時，Fortress DiffDrive 沒有，watchdog 補的是「假驅動板」的功能；`cmd_vel_gz` 這個名稱只存在於模擬側，車子系統只看到標準的 `/<id>/cmd_vel`。
+  - bridge 設定：`amr_hw_sim/bridge.py` 依元件產生 parameter_bridge 的 YAML（`base_config`、`lidar_config`、`imu_config`；`config_file` 參數只吃檔案，由 `write_bridge_config` 寫出）；Fortress 型別前綴為 `ignition.msgs.`；有測試比對 Gazebo 端 topic 與 xacro 設定一致。`/clock` 的設定由 `world.launch.py` 自行產生。
 
 TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_link, imu_link, 輪}`；子專案 2 的 slam_toolbox 再加 `map → amr1/odom`（REP-105：odom 連續會漂移、map 不漂移會跳動）。
 
 ### D7：測試策略
-- 單元（pytest，無 ROS）：`gen_world` 的產生、預設值、各驗證錯誤、可重現性、牆座標計算、失敗不覆蓋；watchdog 邏輯類別。先寫測試、確認失敗、再實作。
-- 靜態：pytest 中執行 xacro 展開並 `check_urdf`，檢查外掛參數存在。
-- 整合：`launch_testing` 冒煙測試，以 `headless:=true` 啟動，涵蓋 simulated-amr 與 sim-runtime 中可自動化的情境（scan/odom 30 s 內有資料、namespace、TF、位移、逾時停車、超速截斷、暫停 `/clock`、正前方光達讀值）。以 `docker compose run --rm sim colcon test --packages-select amr_bringup` 執行。
-- 手動驗收：GPU renderer、`nvidia-smi` 看得到 gazebo、軟體渲染疊加檔、GUI 互動、teleop、RViz、另一容器 echo、改 YAML 不重建、edited world。
+- 單元（pytest，無 ROS）：`gen_world`（產生、預設值、驗證錯誤含 `spawn` 欄位報錯、可重現性、牆座標、失敗不覆蓋）；`world_config`、`robot_config` 的合併與驗證；watchdog 邏輯；各元件 bridge 設定。先寫測試、確認失敗、再實作。
+- 靜態：xacro 展開與 `check_urdf`、外掛參數；bridge 的 Gazebo 端 topic 與 xacro 一致（需要 xacro，無 ROS 時略過）；**`amr_bringup` 的 package.xml 不含 `ros_gz*`／`amr_hw_sim`**。
+- 整合：`launch_testing` 冒煙測試**放在 `amr_hw_sim`**（它需要同時啟動世界與車子系統；放在 `amr_bringup` 會讓車子系統依賴模擬套件），以 headless 啟動 `world.launch.py` 與 `robot.launch.py hardware:=sim`，涵蓋 simulated-amr 與 sim-runtime 中可自動化的情境（scan/odom 30 s 內有資料、namespace、TF、位移、逾時停車、超速截斷、暫停 `/clock`、正前方光達讀值、`/clock` 唯一發布者、重啟車子系統不重複生成）。
+- 手動驗收：GPU renderer、`nvidia-smi` 看得到 gazebo、軟體渲染疊加檔、GUI 互動、teleop、RViz、另一容器 echo、改 YAML 不重建、edited world、`exec.sh` 用法。
 
 ### D8：學習筆記與 commit 節奏
-`docs/學習筆記/NN-主題.md`，固定段落：為什麼要做／做了什麼／怎麼驗證／面試追問／踩坑紀錄（無則省略）；`README.md` 為目錄。每完成一步，程式與筆記同一個 commit。篇目：00 git、01 docker 群組、02 NVIDIA 驅動、03 Container Toolkit、04 Dockerfile、05 entrypoint、06 compose 與容器內 GPU／X11、07 ROS 工作區與 colcon、08 場景產生器、09 車輛 xacro、10 bridge 與 watchdog、11 launch 整合、12 冒煙測試、13 README 與最終驗收。
+`docs/學習筆記/NN-主題.md`，固定段落：為什麼要做／做了什麼／怎麼驗證／面試追問／踩坑紀錄（無則省略）；`README.md` 為目錄。每完成一步，程式與筆記同一個 commit。篇目：00 git、01 docker 群組、02 NVIDIA 驅動、03 Container Toolkit、04 Dockerfile、05 entrypoint、06 compose 與容器內 GPU／X11、07 ROS 工作區與 colcon、08 場景產生器、09 車輛 xacro、10 bridge 與 watchdog、11 世界與車子系統分離（三個 launch）、12 冒煙測試、13 README 與最終驗收。
 
 ## Risks / Trade-offs
 
@@ -120,7 +142,11 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 - [`docker` 群組等同 root] → 單人開發機可接受；筆記說明 rootless Docker 替代方案。
 - [GUI 另存的 `_edited.sdf` 與 YAML 不再同步] → 刻意取捨：結構變更改 YAML，細節微調用 GUI 另存。
 - [預先安裝 Nav2／slam_toolbox 讓映像變大] → 換取子專案 2 不需重建。
+- [車子系統比世界先啟動] → spawn 節點等待 `/world/<名稱>/create` 出現（有逾時），不直接失敗。
+- [Gazebo 中有多個 world] → spawn 無法自動判斷，報錯要求指定（第一版只有一個 world）。
+- [車子系統停止後車體留在世界中] → 刻意保留（像真車關機仍停在原地）；下次啟動先移除再生成，避免重名與里程計接續上次的值。
+- [兩個容器的 `ROS_DOMAIN_ID` 不一致] → 兩者都讀同一個 `ros.env`。
 
 ## Migration Plan
 
-全新專案。舊 change 已刪除；`docker/.env` 已刪除，內容拆至 `docker/amr_sim/config/ros.env` 與 compose 預設值。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。
+全新專案。舊 change 已刪除；2026-10-08 架構調整：`amr_bringup` 的 `sim.launch.py`、`sim_config.py`、`bridge.py`、watchdog 移出（拆到 `amr_worlds`、`amr_hw_sim`），場景 YAML 移除 `spawn`，compose 移除 `AMR_WORLDS_DIR`，規劃中的 `sim.yaml` 改為 `world.yaml`／`robot.yaml`；`docker/.env` 已刪除，內容拆至 `docker/amr_sim/config/ros.env` 與 compose 預設值。回滾即刪除容器與映像；主機端驅動與 toolkit 可用 apt 移除。

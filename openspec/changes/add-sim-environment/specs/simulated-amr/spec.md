@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定義模擬 AMR 對 ROS 2 其他元件（SLAM、Nav2、後端）公開的介面：速度指令、里程計、感測器資料、座標轉換與模擬時間，並以 namespace 隔離以支援未來多車。
+定義模擬 AMR 對 ROS 2 其他元件（SLAM、Nav2、後端）公開的介面：速度指令、里程計、感測器資料、座標轉換與模擬時間，並以 namespace 隔離以支援未來多車。這組介面即「硬體介面」：模擬時由虛擬驅動提供，真車上由真實驅動提供相同的 topic。
 
 ## ADDED Requirements
 
@@ -58,3 +58,14 @@
 #### Scenario: 時間戳來自模擬時鐘
 - **WHEN** 在 Gazebo 中暫停模擬
 - **THEN** `/clock` 停止前進，且 `/amr1/odom` 不再發布新時間戳的訊息
+
+### Requirement: 出生位姿
+模擬模式下，車輛 SHALL 在車子系統啟動時出現在 `robot.yaml` 的 `sim.spawn` 指定的位姿 `[x, y, yaw]`（yaw 以弧度表示）；未設定時 SHALL 為原點 `[0, 0, 0]`。世界（場景）本身不定義車輛的出生位置。
+
+#### Scenario: 車輛於指定位姿出生
+- **WHEN** `robot.yaml` 設定 `sim: {spawn: [1, 1, 0]}` 並以模擬模式啟動車子系統
+- **THEN** `amr1` 出現在 (1, 1) 且車頭朝 +x 方向
+
+#### Scenario: 未設定出生位姿
+- **WHEN** `robot.yaml` 沒有 `sim.spawn`
+- **THEN** `amr1` 出現在 (0, 0) 且車頭朝 +x 方向
