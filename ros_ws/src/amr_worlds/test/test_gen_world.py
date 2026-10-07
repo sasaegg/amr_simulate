@@ -228,3 +228,9 @@ def test_main_yaml_syntax_error_returns_nonzero(tmp_path, capsys):
 def test_main_missing_file_returns_nonzero(tmp_path, capsys):
     assert main([str(tmp_path / 'nope.yaml'), '--out-dir', str(tmp_path)]) != 0
     assert capsys.readouterr().err
+
+def test_main_output_file_is_readable_by_others(tmp_path, scene):
+    scene_file = write_scene(tmp_path / 'scene.yaml', scene)
+    main([str(scene_file), '--out-dir', str(tmp_path)])
+    mode = (tmp_path / 'test_scene.sdf').stat().st_mode & 0o777
+    assert mode & 0o044 == 0o044, oct(mode)

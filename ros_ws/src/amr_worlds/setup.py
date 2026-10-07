@@ -26,6 +26,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'gen_world = amr_worlds.gen_world:main',
         ],
     },
 )
