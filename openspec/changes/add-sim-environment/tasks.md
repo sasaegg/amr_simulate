@@ -28,7 +28,7 @@
 ## 4. 模擬車輛（simulated-amr）
 
 - [x] 4.1 （筆記 09）建立 `ros_ws/src/amr_description`（ament_cmake，安裝 `urdf/`）與 `urdf/amr.urdf.xacro`（參數 `robot_id`；`base_footprint`、底盤 `base_link`、兩驅動輪、前後剛性支撐球、`laser_link`、`imu_link` 的 visual／collision／inertial；link 名稱**不帶**前綴，TF 前綴由 robot_state_publisher 的 `frame_prefix` 加上）；新增 pytest：xacro 展開成功且 `check_urdf` 通過、link 與 joint 結構符合設計、名稱不含 `/`。驗證：`colcon test --packages-select amr_description` 通過
-- [ ] 4.2 （筆記 09）於 xacro 加入 Fortress 外掛與感測器（D6：diff-drive 的 topic／frame／odom 頻率／速度上限、joint-state-publisher、gpu_lidar 360 樣本 0.12–12 m 10 Hz `<ignition_frame_id>`、imu 100 Hz）；擴充 pytest 檢查上述參數值。筆記說明 URDF 與 SDF、inertial 的意義、gpu_lidar 依賴渲染。驗證：`colcon test --packages-select amr_description` 通過
+- [x] 4.2 （筆記 09）於 xacro 加入 Fortress 外掛與感測器（D6：diff-drive 的 topic／frame／odom 頻率／速度上限、joint-state-publisher、gpu_lidar 360 樣本 0.12–12 m 10 Hz `<ignition_frame_id>`、imu 100 Hz）；擴充 pytest 檢查上述參數值。筆記說明 URDF 與 SDF、inertial 的意義、gpu_lidar 依賴渲染。驗證：`colcon test --packages-select amr_description` 通過
 
 ## 5. bridge、watchdog 與啟動整合（sim-runtime、simulated-amr）
 

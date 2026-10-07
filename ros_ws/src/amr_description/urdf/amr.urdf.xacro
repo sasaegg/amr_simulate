@@ -28,6 +28,20 @@
   <xacro:property name="laser_mass" value="0.2"/>
   <xacro:property name="laser_x" value="0.15"/>
 
+  <!-- ===== 運動限制（spec：1.0 m/s、1.5 rad/s；加速度讓停車在 watchdog 0.5 s 後 0.4 s 內完成） ===== -->
+  <xacro:property name="max_linear_velocity" value="1.0"/>
+  <xacro:property name="max_angular_velocity" value="1.5"/>
+  <xacro:property name="max_linear_acceleration" value="2.5"/>
+  <xacro:property name="max_angular_acceleration" value="5.0"/>
+
+  <!-- ===== 感測器 ===== -->
+  <xacro:property name="odom_rate" value="30"/>
+  <xacro:property name="lidar_rate" value="10"/>
+  <xacro:property name="lidar_samples" value="360"/>
+  <xacro:property name="lidar_min_range" value="0.12"/>
+  <xacro:property name="lidar_max_range" value="12.0"/>
+  <xacro:property name="imu_rate" value="100"/>
+
   <!-- base_link 原點在輪軸高度；以下高度都相對於 base_link -->
   <xacro:property name="chassis_z" value="${chassis_clearance + chassis_height / 2 - wheel_radius}"/>
   <xacro:property name="chassis_top_z" value="${chassis_clearance + chassis_height - wheel_radius}"/>
@@ -181,5 +195,79 @@
     <child link="imu_link"/>
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
+
+  <!-- ===================================================================
+       Gazebo（Fortress）外掛與感測器
+       Gazebo 這一側不經過 robot_state_publisher，frame 與 topic 要自己帶 robot_id 前綴
+       =================================================================== -->
+
+  <gazebo>
+    <!-- 差速驅動：收 cmd_vel → 轉動兩輪；由輪子轉動計算並發布里程計與 odom→base_footprint TF -->
+    <plugin filename="ignition-gazebo-diff-drive-system" name="ignition::gazebo::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>${2 * wheel_y}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <!-- 速度指令來自 watchdog（task 5.2），不是直接來自 /cmd_vel -->
+      <topic>/${robot_id}/cmd_vel_gz</topic>
+      <odom_topic>/${robot_id}/odom</odom_topic>
+      <tf_topic>/${robot_id}/tf</tf_topic>
+      <frame_id>${robot_id}/odom</frame_id>
+      <child_frame_id>${robot_id}/base_footprint</child_frame_id>
+      <odom_publish_frequency>${odom_rate}</odom_publish_frequency>
+      <min_linear_velocity>${-max_linear_velocity}</min_linear_velocity>
+      <max_linear_velocity>${max_linear_velocity}</max_linear_velocity>
+      <min_angular_velocity>${-max_angular_velocity}</min_angular_velocity>
+      <max_angular_velocity>${max_angular_velocity}</max_angular_velocity>
+      <min_linear_acceleration>${-max_linear_acceleration}</min_linear_acceleration>
+      <max_linear_acceleration>${max_linear_acceleration}</max_linear_acceleration>
+      <min_angular_acceleration>${-max_angular_acceleration}</min_angular_acceleration>
+      <max_angular_acceleration>${max_angular_acceleration}</max_angular_acceleration>
+    </plugin>
+
+    <!-- 發布輪子 joint 的角度；robot_state_publisher 用它算出輪子的 TF -->
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/${robot_id}/joint_states</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- 2D 光達：gpu_lidar 以 GPU 渲染深度影像換算距離（需要 world 載入 Sensors 系統、ogre2） -->
+  <gazebo reference="laser_link">
+    <sensor name="lidar" type="gpu_lidar">
+      <topic>/${robot_id}/scan</topic>
+      <update_rate>${lidar_rate}</update_rate>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <!-- fixed joint 在轉成 SDF 時會被併入根 link base_footprint，laser_link 不再存在，必須明確指定訊息的 frame -->
+      <ignition_frame_id>${robot_id}/laser_link</ignition_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>${lidar_samples}</samples>
+            <resolution>1</resolution>
+            <!-- 不含 +π：避免 -π 與 +π 兩個樣本落在同一方向，角度間隔剛好 1° -->
+            <min_angle>${-pi}</min_angle>
+            <max_angle>${pi - 2 * pi / lidar_samples}</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>${lidar_min_range}</min>
+          <max>${lidar_max_range}</max>
+          <resolution>0.01</resolution>
+        </range>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- IMU：需要 world 載入 Imu 系統 -->
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <topic>/${robot_id}/imu</topic>
+      <update_rate>${imu_rate}</update_rate>
+      <always_on>true</always_on>
+      <ignition_frame_id>${robot_id}/imu_link</ignition_frame_id>
+    </sensor>
+  </gazebo>
 
 </robot>
