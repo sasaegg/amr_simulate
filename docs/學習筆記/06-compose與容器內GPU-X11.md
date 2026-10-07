@@ -1,6 +1,6 @@
 # 06 compose：容器內的 GPU 與 X11
 
-檔案：[`docker/amr_sim/compose.yaml`](../../docker/amr_sim/compose.yaml)、[`build.sh`](../../docker/amr_sim/build.sh)、[`up.sh`](../../docker/amr_sim/up.sh)、[`exec.sh`](../../docker/amr_sim/exec.sh)、[`config/ros.env`](../../docker/amr_sim/config/ros.env)
+檔案：[`docker/amr_sim/compose.yaml`](../../docker/amr_sim/compose.yaml)、[`build.sh`](../../docker/amr_sim/build.sh)、[`up_gpu.sh`](../../docker/amr_sim/up_gpu.sh)、[`up_cpu.sh`](../../docker/amr_sim/up_cpu.sh)、[`exec.sh`](../../docker/amr_sim/exec.sh)、[`config/ros.env`](../../docker/amr_sim/config/ros.env)
 
 ## 為什麼要做
 
@@ -11,7 +11,7 @@
 - **compose.yaml 是宣告式的說明書**：描述「要有哪些容器、怎麼設定」，`docker compose up` 負責讓實際狀態符合它（映像不存在就 build、建立並啟動容器；設定改了會自動重建容器）。
 - **image / service / container**：image 是軟體快照；service 是「用哪個 image、怎麼執行」的定義；container 是依 service 跑起來的實體（類比 class 與 instance）。一個 service 預設一個容器；`run` 會另開一次性容器；多個 service 可共用同一個 image。
 - **`docker compose build`**：找到 compose.yaml（從目前目錄往**上層**找），對有 `build:` 的 service 建置，等同 `docker build -t <image> --build-arg ... <context>`，與手動 docker build 共用同一份 BuildKit 快取。
-- **`up` 不會自動重建映像**：映像已存在就直接用。改了 Dockerfile 要 `build.sh` 或 `up.sh --build`。
+- **`up` 不會自動重建映像**：映像已存在就直接用。改了 Dockerfile 要 `build.sh` 或 `up_gpu.sh --build`。
 
 ## 做了什麼
 
@@ -21,7 +21,7 @@
 docker/amr_sim/          ← 一個映像一個資料夾：材料、設定、compose、腳本都在這
   Dockerfile  entrypoint.sh
   compose.yaml
-  build.sh  up.sh  exec.sh
+  build.sh  up_gpu.sh  up_cpu.sh  exec.sh
   config/ros.env
 ```
 
@@ -99,14 +99,15 @@ exec docker compose ...    # exec：compose 取代腳本程序，Ctrl+C 直接�
 | 腳本 | 內容 | 重點 |
 |---|---|---|
 | `build.sh` | `export USER_UID="$(id -u)" USER_GID="$(id -g)"` → `docker compose build "$@"` | bash 的 `$UID` 是**未 export 的 shell 變數**，compose 讀不到，所以在這裡 export |
-| `up.sh` | `docker compose up -d sim "$@"` | `-d` 背景執行，立刻返回 |
+| `up_gpu.sh` | `docker compose up -d sim "$@"` | `-d` 背景執行，立刻返回；GPU 繪圖 |
+| `up_cpu.sh` | `docker compose -f compose.yaml -f compose.software.yaml up -d sim "$@"` | 同上，軟體渲染（task 2.4） |
 | `exec.sh` | `docker compose exec sim bash` | 固定開互動式 bash → 一定讀 `~/.bashrc` → 一定有 ROS 環境；可開多個終端機各自進入 |
 
 刻意不做：`run.sh`（長駐流程下改為 exec 操作；跨容器測試時手動 `docker compose run --rm sim bash`）、`down.sh`（手動 `docker compose down` 或 `docker stop amr_sim-sim-1`）、`sim.sh`（launch 在容器內手動執行）。
 
 日常流程：
 ```
-docker/amr_sim/up.sh       # 啟動長駐容器
+docker/amr_sim/up_gpu.sh       # 啟動長駐容器
 docker/amr_sim/exec.sh     # 進入（可開多個）
   ros2 launch ...          # 啟動模擬；Ctrl+C 停止，容器仍在
 docker compose down        # 在 docker/amr_sim/ 收工
@@ -118,7 +119,7 @@ docker compose down        # 在 docker/amr_sim/ 收工
 |---|---|
 | `xhost` | 含 `SI:localuser:myuser`；容器以 UID 1000 執行，**不需要 `xhost +`**（不做 `allow_x.sh`） |
 | 從 `/tmp` 執行 `build.sh` | `Image amr-sim:humble Built`，各層 CACHED（UID 1000 與預設相同，快取不失效） |
-| `up.sh` | 立即返回，`amr_sim-sim-1` running |
+| `up_gpu.sh` | 立即返回，`amr_sim-sim-1` running |
 | 容器內 `ps` | PID 1 `docker-init`、`sleep` 為其子程序 |
 | `echo $ROS_DOMAIN_ID`（exec 進入） | `0` |
 | `glxinfo -B` | `OpenGL renderer string: NVIDIA GeForce RTX 3060 Laptop GPU/PCIe/SSE2`、core profile 4.6、驅動 580.178.04 |
@@ -143,8 +144,8 @@ services:
 
 ```bash
 cd docker/amr_sim
-docker compose -f compose.yaml -f compose.software.yaml up -d sim   # 切到軟體渲染
-./up.sh                                                              # 切回 GPU（設定不同 → 自動重建容器）
+./up_cpu.sh                                                          # 切到軟體渲染（= -f compose.yaml -f compose.software.yaml up -d sim）
+./up_gpu.sh                                                              # 切回 GPU（設定不同 → 自動重建容器）
 ```
 
 - **`-f a -f b` 合併規則**：後者覆寫前者；map（如 `environment`）逐鍵合併，沒寫到的鍵保留。一般覆寫只能改值不能刪除，要刪整個鍵用 `!reset`（compose v2.24+，本機 v5.6）。

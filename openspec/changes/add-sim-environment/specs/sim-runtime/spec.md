@@ -10,7 +10,7 @@
 在已完成主機準備（Docker Engine、NVIDIA 驅動、NVIDIA Container Toolkit）的 Ubuntu 22.04 上，系統 SHALL 提供一個可在任何目錄執行的啟動腳本，在背景建立（映像不存在時先建置）並維持一個長駐的模擬容器，此時不啟動模擬；使用者 SHALL 可透過進入腳本開啟容器內的互動式 shell，並在其中以單一 launch 指令啟動模擬，載入設定的場景並生成 `amr1`。停止模擬不 SHALL 連帶停止容器。
 
 #### Scenario: 啟動長駐容器
-- **WHEN** 使用者執行 `docker/amr_sim/up.sh`
+- **WHEN** 使用者執行 `docker/amr_sim/up_gpu.sh`
 - **THEN** 指令立即返回，模擬容器持續執行，且尚未出現 Gazebo 視窗
 
 #### Scenario: 在容器內啟動模擬

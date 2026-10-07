@@ -19,7 +19,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- 在這台筆電上以 `up.sh` 啟動長駐容器、`exec.sh` 進入後 launch，看到 GPU 加速的倉庫與車，鍵盤可開車。
+- 在這台筆電上以 `up_gpu.sh` 啟動長駐容器、`exec.sh` 進入後 launch，看到 GPU 加速的倉庫與車，鍵盤可開車。
 - 映像不綁定主機驅動版本；同一份 compose 可用於任何裝有 NVIDIA 驅動與 Container Toolkit 的 Ubuntu 主機。
 - 車輛介面（topic／frame 命名）一次定型，後續子專案直接沿用。
 - 每一步可被解釋：學習筆記記錄原因、驗證與面試追問。
@@ -83,7 +83,8 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 ### D5a：便利腳本
 每個映像一個資料夾 `docker/<映像名>/`（目前只有 `amr_sim`），內含該映像的 Dockerfile、entrypoint、config、compose 與便利腳本。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")"` 到腳本所在資料夾（compose.yaml 就在這裡，任何目錄執行皆可）：
 - `build.sh`：`export USER_UID=$(id -u) USER_GID=$(id -g)` 後 `docker compose build "$@"`——自動帶入正確 UID，免手動 export。
-- `up.sh`：`docker compose up -d sim "$@"`，在背景啟動長駐容器（不啟動模擬）。修改 Dockerfile 後用 `up.sh --build`。
+- `up_gpu.sh`：`docker compose up -d sim "$@"`，在背景啟動長駐容器（GPU 繪圖，不啟動模擬）。修改 Dockerfile 後用 `up_gpu.sh --build`。
+- `up_cpu.sh`：`docker compose -f compose.yaml -f compose.software.yaml up -d sim "$@"`，同上但改用軟體渲染。兩者互相切換時 compose 偵測到設定不同，自動重建容器。
 - `exec.sh`：`docker compose exec sim bash`，固定開互動式 bash（必定讀 `~/.bashrc`，ROS 環境一定可用）；可同時開多個終端機各自進入（launch、teleop、RViz）。
 - 刻意不做：`run.sh`（長駐容器流程下改為 exec 進去操作；跨容器測試時手動 `docker compose run --rm sim bash`）、`down.sh`（手動 `docker compose down` 或 `docker stop amr_sim-sim-1`）、`sim.sh`（launch 由使用者在容器內手動執行）、`allow_x.sh`（預期不需要，task 2.3 驗證失敗才加）、`test.sh`（第 6 組測試齊全後再決定）。
 
