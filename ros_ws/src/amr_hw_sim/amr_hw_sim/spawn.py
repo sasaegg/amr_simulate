@@ -10,6 +10,7 @@ Gazebo 端以 ign CLI 操作（service 清單、移除實體、列出模型）�
 - DiffDrive 會一直執行最後收到的速度指令 → 移回前先送一次零速度，否則車子會接著跑。
 - create service 一出現就送出要求，世界可能還沒準備好而丟掉要求 → 生成後確認車輛真的出現，否則重試。
 - `ign model` 沒有指定 world 的參數（只支援單一世界）。
+- create 要用 `-string` 傳 URDF 內容：`-file` 只傳路徑，sim 與 robot 是不同容器，Gazebo 讀不到 robot 的檔案。
 """
 
 import argparse
@@ -17,7 +18,6 @@ import math
 import re
 import subprocess
 import sys
-import tempfile
 import time
 
 CREATE_SERVICE = re.compile(r'^/world/([^/\s]+)/create$')
@@ -124,11 +124,10 @@ def stop_and_move(world, name, x, y, yaw, log=print):
 
 
 def spawn(world, name, urdf_text, x, y, yaw, attempts=5, log=print):
-    with tempfile.NamedTemporaryFile('w', suffix='.urdf', delete=False) as f:
-        f.write(urdf_text)
-        path = f.name
+    # 用 -string 把 URDF「內容」經 Gazebo transport 送過去，不能用 -file：
+    # -file 只傳路徑，Gazebo 在 sim 容器裡讀檔，而這個檔案在 robot 容器（兩邊檔案系統不同）
     command = ['ros2', 'run', 'ros_gz_sim', 'create', '-world', world, '-name', name,
-               '-file', path, '-x', str(x), '-y', str(y), '-z', '0.0', '-Y', str(yaw)]
+               '-string', urdf_text, '-x', str(x), '-y', str(y), '-z', '0.0', '-Y', str(yaw)]
     for attempt in range(1, attempts + 1):
         _run(command, timeout=30)
         # create 回報 OK 不代表真的生成（世界還沒準備好時要求會被丟掉，但仍回 OK）
