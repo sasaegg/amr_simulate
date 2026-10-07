@@ -32,7 +32,7 @@
 
 ## 5. bridge、watchdog 與啟動整合（sim-runtime、simulated-amr）
 
-- [ ] 5.1 （筆記 10）建立 `ros_ws/src/amr_bringup`（ament_python）；先寫 watchdog 邏輯類別的 pytest（收到指令即轉發、0.5 s 無指令輸出一次零速度、之後不重複、恢復指令後再次轉發；時間由測試注入）。驗證：測試失敗（尚未實作）
+- [x] 5.1 （筆記 10）建立 `ros_ws/src/amr_bringup`（ament_python）；先寫 watchdog 邏輯類別的 pytest（收到指令即轉發、0.5 s 無指令輸出一次零速度、之後不重複、恢復指令後再次轉發；時間由測試注入）。驗證：測試失敗（尚未實作）
 - [ ] 5.2 （筆記 10）實作 watchdog 邏輯類別與 `cmd_vel_watchdog` rclpy 節點（訂閱 `cmd_vel`、發布 `cmd_vel_gz`，皆為相對名稱以吃 namespace）。驗證：5.1 測試通過
 - [ ] 5.3 （筆記 10）撰寫 ros_gz_bridge 設定產生方式（D6 列出的 topic 與方向，以 robot_id 參數化）；筆記說明 gz transport 與 ROS 2 是兩套獨立的通訊系統、bridge 的方向與型別對應。驗證：pytest 檢查以 `amr1` 產生的設定含全部 topic 且方向正確
 - [ ] 5.4 （筆記 11）撰寫 `launch/sim.launch.py`（參數 `config`、`world`、`robot_id`、`headless`，依「套件預設 ← `sim.yaml` ← 命令列」合併，合併邏輯抽成純函式並寫 pytest：無設定檔用預設、設定檔覆寫預設、命令列覆寫設定檔；`AMR_WORLDS_DIR`；spawn 位姿解析含 `_edited` 退回規則；`spawn_robot(robot_id, pose)` 函式；robot_state_publisher 的 namespace、`frame_prefix`、`use_sim_time`）；spawn 解析邏輯抽成可測函式並寫 pytest。驗證：pytest 通過；`exec.sh` 進入後 `ros2 launch amr_bringup sim.launch.py` 後 Gazebo 顯示倉庫與位於 (1,1) 朝 +x 的車，bridge 無錯誤訊息
