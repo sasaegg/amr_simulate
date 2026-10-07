@@ -1,6 +1,6 @@
 import pytest
 
-from amr_bringup.watchdog import Watchdog
+from amr_hw_sim.watchdog import Watchdog
 
 TIMEOUT = 0.5
 

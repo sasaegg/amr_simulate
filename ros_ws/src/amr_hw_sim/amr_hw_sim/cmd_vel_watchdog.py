@@ -14,7 +14,7 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
-from amr_bringup.watchdog import Watchdog
+from amr_hw_sim.watchdog import Watchdog
 
 
 class CmdVelWatchdog(Node):
