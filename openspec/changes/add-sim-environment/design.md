@@ -43,7 +43,8 @@
 ### D2：GPU 透過 NVIDIA Container Toolkit 注入，映像內不裝驅動
 compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all, capabilities: [gpu]}]` 要求 GPU，並設定 `NVIDIA_DRIVER_CAPABILITIES=all`。
 - 容器與主機共用 kernel，kernel module 只能在主機；使用者層函式庫（libGLX_nvidia、libcuda…）與 kernel module 之間是私有介面、版本必須完全一致。toolkit 在容器啟動時注入與主機匹配的使用者層函式庫與 `/dev/nvidia*`，因此映像可攜、主機升級驅動不需重建映像。
-- `NVIDIA_DRIVER_CAPABILITIES` 預設只有 `compute,utility`，不含 OpenGL 所需的 `graphics`；不設定時 Gazebo 會退回軟體渲染或崩潰。
+- 注入路徑（實測 2026-10-07，Docker 29.8 + Toolkit 1.20.1）：`--gpus`／compose `deploy.devices` 由 Docker 直接走 **CDI**（spec 由 `nvidia-cdi-refresh` 自動產生於 `/var/run/cdi/nvidia.yaml`）；`--runtime=nvidia` 在 `mode = "auto"` 下也解析為 CDI。CDI 模式會注入全部驅動函式庫（實測 59 個，含 GLX／EGL），**不受 `NVIDIA_DRIVER_CAPABILITIES` 影響**。
+- 仍設定 `NVIDIA_DRIVER_CAPABILITIES=all`：在舊版 toolkit 或 legacy 模式（預設只有 `compute,utility`，不含 OpenGL 所需的 `graphics`）的主機上，不設定會導致 Gazebo 退回軟體渲染或崩潰；設定後兩種模式都正確，成本為零。
 - 替代方案：映像內裝相同版本的使用者層驅動（`--no-kernel-module`）→ 映像綁死驅動版本、主機自動更新後即壞（錯誤如 `Driver/library version mismatch`，或無聲退回 llvmpipe）。用 Intel 內顯（掛 `/dev/dri`、Mesa 在容器內）→ Mesa 經穩定的 DRM uAPI 與 kernel 溝通所以可行，但 ogre2 + gpu_lidar 效能不足，且 3D SLAM 子專案終究需要 NVIDIA。
 - 雙顯卡：設 `__NV_PRIME_RENDER_OFFLOAD=1`、`__GLX_VENDOR_LIBRARY_NAME=nvidia`，讓 GLVND 把 OpenGL 分派給 NVIDIA，再把畫面交給負責顯示的 X server。
 
@@ -94,7 +95,7 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 ## Risks / Trade-offs
 
 - [外接螢幕接在 NVIDIA 時 Wayland 黑畫面]（已發生）→ 改用 Xorg（`WaylandEnable=false`）；容器只依賴標準 X11，不受影響。日後升級到 Ubuntu 24.04（mutter 較新）可再評估 Wayland。
-- [PRIME offload 設定後仍由 Intel 繪圖] → 以 `glxinfo -B` 驗證 renderer；若失敗，檢查 `NVIDIA_DRIVER_CAPABILITIES` 是否含 graphics、`prime-select query` 是否為 `on-demand` 或 `nvidia`。
+- [PRIME offload 設定後仍由 Intel 繪圖] → 以 `glxinfo -B` 驗證 renderer；若失敗，檢查容器內是否有 `libGLX_nvidia.so.0`（legacy 模式下需 `NVIDIA_DRIVER_CAPABILITIES` 含 graphics）、`prime-select query` 是否為 `on-demand` 或 `nvidia`。
 - [headless 模式的 EGL 離屏渲染在此驅動組合下失敗] → 冒煙測試先嘗試 `--headless-rendering`；不行則改為在有 `DISPLAY` 的環境下以 `-s` 執行（server 端仍會以 GPU 渲染光達），並記錄於踩坑紀錄。
 - [`deploy: !reset` 需要 compose v2.24+] → 主機為 Docker 29.8 附帶的 compose plugin，符合；筆記註明版本需求。
 - [同 UID 使用者在其他主機 UID 不是 1000] → `USER_UID`／`USER_GID` 由 `.env` 設定，README 說明以 `id -u` 填入。
