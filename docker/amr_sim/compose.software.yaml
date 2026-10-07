@@ -1,0 +1,12 @@
+# 軟體渲染疊加檔：給沒有 NVIDIA GPU／Container Toolkit 的主機，或排查 GPU 問題時用
+# 用法（在 docker/amr_sim/）：docker compose -f compose.yaml -f compose.software.yaml up -d sim
+# 回到 GPU：./up.sh（只用 compose.yaml，compose 會發現設定不同而重建容器）
+services:
+  sim:
+    # 清掉 compose.yaml 的 GPU 要求（!reset 需 compose v2.24+）
+    deploy: !reset {}
+    environment:
+      # OpenGL 交給 Mesa，再要求 Mesa 用 CPU 繪圖（llvmpipe）；LIBGL_ALWAYS_SOFTWARE 只有 Mesa 看得懂
+      __GLX_VENDOR_LIBRARY_NAME: mesa
+      __NV_PRIME_RENDER_OFFLOAD: "0"
+      LIBGL_ALWAYS_SOFTWARE: "1"

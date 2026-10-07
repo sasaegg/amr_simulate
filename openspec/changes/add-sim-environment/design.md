@@ -78,7 +78,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - 長駐容器：主程式為 `sleep infinity`，容器不會自行結束；模擬由使用者 exec 進去後手動 `ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。啟動容器與啟動模擬分離，可反覆啟動／停止 launch 而不重建容器。`init: true` 讓 tini 為 PID 1、sleep 為子程序，`docker compose down` 約 0.1 秒完成。CMD 若維持 `bash`，`up` 不配置終端機，bash 讀到 EOF 立即結束、容器隨之退出。
 - `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與其他容器直接可見。
 - `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
-- `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`；放在 `docker/amr_sim/`，使用方式 `docker compose -f compose.yaml -f compose.software.yaml up -d sim`。
+- `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`；不設 `MESA_GL_VERSION_OVERRIDE`：實測 llvmpipe（Mesa 23.2）已提供 OpenGL 4.5 core，高於 ogre2 需要的 3.3（舊版設定是為了 WSL d3d12 只回報 4.2 的問題）。放在 `docker/amr_sim/`，使用方式 `docker compose -f compose.yaml -f compose.software.yaml up -d sim`。
 
 ### D5a：便利腳本
 每個映像一個資料夾 `docker/<映像名>/`（目前只有 `amr_sim`），內含該映像的 Dockerfile、entrypoint、config、compose 與便利腳本。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")"` 到腳本所在資料夾（compose.yaml 就在這裡，任何目錄執行皆可）：

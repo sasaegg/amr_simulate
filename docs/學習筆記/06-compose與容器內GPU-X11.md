@@ -127,6 +127,43 @@ docker compose down        # 在 docker/amr_sim/ 收工
 | 在 `/ros_ws`、`/config` 建立檔案 | 主機上擁有者 UID 1000 |
 | `docker compose down` | 0.13 秒 |
 
+## 補充：軟體渲染疊加檔（task 2.4）
+
+檔案：[`docker/amr_sim/compose.software.yaml`](../../docker/amr_sim/compose.software.yaml)
+
+```yaml
+services:
+  sim:
+    deploy: !reset {}                       # 清空整個 GPU 要求
+    environment:
+      __GLX_VENDOR_LIBRARY_NAME: mesa       # OpenGL 交給 Mesa
+      __NV_PRIME_RENDER_OFFLOAD: "0"
+      LIBGL_ALWAYS_SOFTWARE: "1"            # Mesa 用 CPU 繪圖（llvmpipe）
+```
+
+```bash
+cd docker/amr_sim
+docker compose -f compose.yaml -f compose.software.yaml up -d sim   # 切到軟體渲染
+./up.sh                                                              # 切回 GPU（設定不同 → 自動重建容器）
+```
+
+- **`-f a -f b` 合併規則**：後者覆寫前者；map（如 `environment`）逐鍵合併，沒寫到的鍵保留。一般覆寫只能改值不能刪除，要刪整個鍵用 `!reset`（compose v2.24+，本機 v5.6）。
+- **為什麼要同時把 vendor 改成 mesa**：`LIBGL_ALWAYS_SOFTWARE` 只有 Mesa 看得懂。若 GLVND 仍被要求用 nvidia，而容器內已沒有 NVIDIA 函式庫，OpenGL 直接失敗。
+- **不需要 `MESA_GL_VERSION_OVERRIDE`**：llvmpipe 已提供 OpenGL 4.5 core，高於 ogre2 需要的 3.3。舊設定是 WSL d3d12 只回報 4.2 時的權宜之計。
+
+實測（2026-10-07）：
+
+| 項目 | GPU 模式 | 軟體模式 |
+|---|---|---|
+| renderer | NVIDIA GeForce RTX 3060 Laptop GPU | llvmpipe (LLVM 15.0.7, 256 bits) |
+| OpenGL core | 4.6 | 4.5（Mesa 23.2.1） |
+| 容器內 nvidia 函式庫／`/dev/nvidia*` | 59 個／5 個 | 0／0 |
+| `shapes.sdf` 操作流暢度 | 流暢 | 差別不大 |
+| RTF | — | 約 0.9 |
+| 主機 CPU | — | 約 55%（20 核） |
+
+`shapes.sdf` 只有幾個簡單幾何體，llvmpipe 用多核心 CPU 就應付得來；差距會在倉庫場景加上 gpu_lidar（每秒 10 次深度渲染）時才明顯，屆時可再比較。軟體模式的代價是吃 CPU、RTF 掉到 1 以下（模擬比真實時間慢）。
+
 ## 面試追問
 
 **Q：compose 和 docker run 差在哪？**
@@ -146,6 +183,12 @@ A：啟動容器與啟動程式分離，可反覆 launch／停止、多個終端
 
 **Q：`docker exec` 進去的程序和容器主程式是什麼關係？**
 A：exec 是從外部把新程序放進容器的 namespace，不是 PID 1 的子程序（容器內 `ps` 看到它的 PPID 是 0），也不經過 entrypoint，所以 ROS 環境要靠 `.bashrc` 或容器層級的環境變數（env_file）。
+
+**Q：沒有 GPU 的機器怎麼跑？**
+A：用疊加檔：`-f compose.yaml -f compose.software.yaml`，以 `!reset` 拿掉 GPU 要求，把 GLVND vendor 換成 mesa 並設 `LIBGL_ALWAYS_SOFTWARE=1`，改用 llvmpipe 以 CPU 繪圖。不改主檔、切換只差一個 `-f`。實測簡單場景 RTF 約 0.9、CPU 55%。
+
+**Q：RTF 是什麼？**
+A：Real Time Factor，模擬時間前進速度 ÷ 真實時間。1.0 表示和真實時間同步；小於 1 表示電腦算不動、模擬變慢。所有 ROS 節點用 `/clock`（模擬時間），所以 RTF 小於 1 時行為仍一致，只是整體變慢。
 
 **Q：YAML anchor 合併有什麼陷阱？**
 A：`<<:` 是淺層合併，service 自己寫了同名鍵會整個取代；例如自己寫 `environment` 就會丟掉共用的 DISPLAY 等變數。
