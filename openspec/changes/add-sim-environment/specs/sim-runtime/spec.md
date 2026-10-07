@@ -2,20 +2,28 @@
 
 ## Purpose
 
-定義在 Ubuntu 22.04 主機上以容器一鍵啟動模擬的使用方式：GPU 加速繪圖（含軟體渲染退路）、以標準 X11 顯示 Gazebo 3D 視窗、容器與主機／其他容器間的 ROS 互通，以及免重建映像的原始碼開發流程。
+定義在 Ubuntu 22.04 主機上以長駐容器執行模擬的使用方式：GPU 加速繪圖（含軟體渲染退路）、以標準 X11 顯示 Gazebo 3D 視窗、容器與主機／其他容器間的 ROS 互通，以及免重建映像的原始碼開發流程。
 
 ## ADDED Requirements
 
-### Requirement: 一鍵啟動模擬
-在已完成主機準備（Docker Engine、NVIDIA 驅動、NVIDIA Container Toolkit）的 Ubuntu 22.04 上，於專案根目錄執行單一 compose 指令 SHALL 建置（若需要）並啟動模擬容器，載入預設場景 `warehouse_small` 並生成 `amr1`。
+### Requirement: 長駐容器與模擬分開啟動
+在已完成主機準備（Docker Engine、NVIDIA 驅動、NVIDIA Container Toolkit）的 Ubuntu 22.04 上，系統 SHALL 提供一個可在任何目錄執行的啟動腳本，在背景建立（映像不存在時先建置）並維持一個長駐的模擬容器，此時不啟動模擬；使用者 SHALL 可透過進入腳本開啟容器內的互動式 shell，並在其中以單一 launch 指令啟動模擬，載入設定的場景並生成 `amr1`。停止模擬不 SHALL 連帶停止容器。
 
-#### Scenario: 首次啟動
-- **WHEN** 使用者在專案根目錄執行 `docker compose up sim`
-- **THEN** 映像建置完成後 Gazebo 視窗出現在主機桌面，顯示倉庫場景與車輛
+#### Scenario: 啟動長駐容器
+- **WHEN** 使用者執行 `docker/amr_sim/up.sh`
+- **THEN** 指令立即返回，模擬容器持續執行，且尚未出現 Gazebo 視窗
 
-#### Scenario: 關閉模擬
-- **WHEN** 使用者在執行 compose 的終端機按下 Ctrl+C
-- **THEN** 模擬相關程序全部結束，容器停止，不殘留 Gazebo 程序
+#### Scenario: 在容器內啟動模擬
+- **WHEN** 使用者以 `docker/amr_sim/exec.sh` 進入容器並執行 launch 指令
+- **THEN** Gazebo 視窗出現在主機桌面，顯示倉庫場景與車輛
+
+#### Scenario: 停止模擬但保留容器
+- **WHEN** 使用者在執行 launch 的 shell 按下 Ctrl+C
+- **THEN** 模擬相關程序全部結束、不殘留 Gazebo 程序，容器仍在執行，可再次 launch
+
+#### Scenario: 關閉容器
+- **WHEN** 使用者在 `docker/amr_sim/` 執行 `docker compose down`
+- **THEN** 容器在 1 秒內停止並移除
 
 ### Requirement: 選擇場景
 要載入的 world SHALL 依序由下列來源決定，後者覆寫前者：(1) 套件內建預設值 `warehouse_small`；(2) 執行設定檔 `sim.yaml` 的 `world`；(3) 啟動指令的 launch 參數 `world`。切換場景 SHALL 不需修改 compose 檔或重建映像。

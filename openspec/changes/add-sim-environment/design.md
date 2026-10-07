@@ -19,7 +19,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- 在這台筆電上 `docker compose up sim` 一個指令看到 GPU 加速的倉庫與車，鍵盤可開車。
+- 在這台筆電上以 `up.sh` 啟動長駐容器、`exec.sh` 進入後 launch，看到 GPU 加速的倉庫與車，鍵盤可開車。
 - 映像不綁定主機驅動版本；同一份 compose 可用於任何裝有 NVIDIA 驅動與 Container Toolkit 的 Ubuntu 主機。
 - 車輛介面（topic／frame 命名）一次定型，後續子專案直接沿用。
 - 每一步可被解釋：學習筆記記錄原因、驗證與面試追問。
@@ -64,26 +64,28 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - `--symlink-install`：Python 與 launch 檔以 symlink 安裝，修改後免重建。
 
 ### D5：compose 結構
-- 根目錄 `compose.yaml`（專案根目錄直接 `docker compose up sim`）。不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/amr_sim/config/`。
+- compose 檔放在 `docker/amr_sim/compose.yaml`：映像材料、執行設定、compose 與腳本集中於同一資料夾。檔內相對路徑以該資料夾為基準（`context: .`、`./config`、`../../ros_ws`）。compose 只往上層找設定檔，在專案根目錄不能直接下 `docker compose`，以腳本為主要入口；手動操作時先 `cd docker/amr_sim`。
+- `name: amr_sim`：明確固定專案名稱（容器名前綴、`ps`／`down` 的歸屬標籤），不依賴資料夾名稱；資料夾改名時才不會讓舊容器變成孤兒。之後其他映像的 compose 必須使用不同名稱。
+- 不使用 `.env`：建置參數 `USER_UID`／`USER_GID` 在 compose 中寫預設值（`.env` 只能做 compose 層級的變數替換，且建置參數必須在建置時就可得，不能放進執行期才掛載的設定目錄）；執行設定全部在 `docker/amr_sim/config/`。
 - 設定分三處，各有職責：套件（程式與預設值）、`docker/amr_sim/config/`（本次部署／執行的設定）、compose（基礎環境與建置參數的預設值）。
 - **`docker/amr_sim/config/`**（以可寫方式掛載到容器 `/config`）：
   - `ros.env`：`ROS_DOMAIN_ID` 等 ROS 環境變數，以 compose `env_file` 載入。選 env_file 而不是讓 entrypoint 讀取：`docker exec` 不執行 entrypoint，只有容器層級的環境變數能讓 launch、exec 進去的 shell、之後的 nav／backend 容器都拿到同一個值。
   - `sim.yaml`：`world`、`robot_id`、`headless`，由 launch 讀取。第一版用單數 `robot_id`（多車為 Non-Goal），多車時再改為清單。
   - 可寫掛載：程式執行中可能更新設定；寫入的變更會出現在 `git status`，由使用者決定是否 commit。執行產生的資料（地圖、資料庫）屬不同類別，由後續子專案另行規劃存放位置。
   - 覆寫順序：套件預設值 ← `sim.yaml` ← launch 命令列參數。
-- 共用設定以 extension field + YAML anchor（`x-ros-common: &ros-common`）定義，供之後 `nav`、`backend` service 沿用。
-- `sim` service：`build: {context: ./docker/amr_sim, args: {USER_UID: ${USER_UID:-1000}, USER_GID: ${USER_GID:-1000}}}`、image `amr-sim:humble`、`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`./ros_ws:/ros_ws`、`./docker/amr_sim/config:/config`、`env_file: docker/amr_sim/config/ros.env`、`command: ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。
+- 每個 service 完整展開寫出，不使用 `x-` 擴充欄位與 YAML anchor：一目了然，也避開 `<<:` 只做淺層合併（service 自己寫 `environment` 會整個取代共用內容）的陷阱。之後加入 nav／backend 時再評估是否抽出共用設定。
+- `sim` service：`build: {context: ., args: {USER_UID: ${USER_UID:-1000}, USER_GID: ${USER_GID:-1000}}}`、image `amr-sim:humble`、`network_mode: host`、`ipc: host`、`init: true`、GPU 設定（D2）、`DISPLAY`、`/tmp/.X11-unix:/tmp/.X11-unix:ro`、`../../ros_ws:/ros_ws`、`./config:/config`、`env_file: ./config/ros.env`、`command: ["sleep", "infinity"]`。
+- 長駐容器：主程式為 `sleep infinity`，容器不會自行結束；模擬由使用者 exec 進去後手動 `ros2 launch amr_bringup sim.launch.py config:=/config/sim.yaml`。啟動容器與啟動模擬分離，可反覆啟動／停止 launch 而不重建容器。`init: true` 讓 tini 為 PID 1、sleep 為子程序，`docker compose down` 約 0.1 秒完成。CMD 若維持 `bash`，`up` 不配置終端機，bash 讀到 EOF 立即結束、容器隨之退出。
 - `network_mode: host`：DDS 以 multicast 探索，bridge 網路下不穩；host 網路讓主機與其他容器直接可見。
 - `ipc: host`：Fast DDS 對同主機節點預設使用 shared memory 傳輸；容器若 IPC namespace 不同，會出現「topic 列得出來但收不到資料」。同時讓 X11 MIT-SHM 可用，不需要 `QT_X11_NO_MITSHM`。
-- `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`；使用方式 `docker compose -f compose.yaml -f compose.software.yaml up sim`。
+- `compose.software.yaml` 疊加檔：以 `deploy: !reset {}` 移除 GPU 要求，設 `LIBGL_ALWAYS_SOFTWARE=1`、`__GLX_VENDOR_LIBRARY_NAME=mesa`、`__NV_PRIME_RENDER_OFFLOAD=0`、`MESA_GL_VERSION_OVERRIDE=3.3`；放在 `docker/amr_sim/`，使用方式 `docker compose -f compose.yaml -f compose.software.yaml up -d sim`。
 
 ### D5a：便利腳本
-`docker/` 第一層只放便利腳本，映像材料放在 `docker/<映像名>/`（目前只有 `amr_sim`，之後如前端映像另開資料夾）。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")/.."` 到專案根目錄（任何目錄執行皆可）、以 `"$@"` 轉交額外參數：
-- `build.sh`：`export USER_UID=$(id -u) USER_GID=$(id -g)` 後 `docker compose build`——自動帶入正確 UID，免手動 export。
-- `up.sh`：`docker compose up sim`，一鍵啟動模擬。
-- `exec.sh`：`docker compose exec sim bash`，進入執行中的容器。
-- `run.sh [指令]`：`docker compose run --rm sim <指令>`（無指令時開 bash），用一次性容器執行測試、`colcon build`、產生場景等。
-- 刻意不做：`down.sh`（Ctrl+C 即可）、`allow_x.sh`（預期不需要，task 2.3 驗證失敗才加）、`test.sh`（第 6 組測試齊全後再決定）。
+每個映像一個資料夾 `docker/<映像名>/`（目前只有 `amr_sim`），內含該映像的 Dockerfile、entrypoint、config、compose 與便利腳本。腳本一律 `set -euo pipefail`、先 `cd "$(dirname "$0")"` 到腳本所在資料夾（compose.yaml 就在這裡，任何目錄執行皆可）：
+- `build.sh`：`export USER_UID=$(id -u) USER_GID=$(id -g)` 後 `docker compose build "$@"`——自動帶入正確 UID，免手動 export。
+- `up.sh`：`docker compose up -d sim "$@"`，在背景啟動長駐容器（不啟動模擬）。修改 Dockerfile 後用 `up.sh --build`。
+- `exec.sh`：`docker compose exec sim bash`，固定開互動式 bash（必定讀 `~/.bashrc`，ROS 環境一定可用）；可同時開多個終端機各自進入（launch、teleop、RViz）。
+- 刻意不做：`run.sh`（長駐容器流程下改為 exec 進去操作；跨容器測試時手動 `docker compose run --rm sim bash`）、`down.sh`（手動 `docker compose down` 或 `docker stop amr_sim-sim-1`）、`sim.sh`（launch 由使用者在容器內手動執行）、`allow_x.sh`（預期不需要，task 2.3 驗證失敗才加）、`test.sh`（第 6 組測試齊全後再決定）。
 
 ### D6：工作區三個套件
 依「變動原因」切分：地圖、車、組裝各自獨立；子專案 2 起只在 bringup 層新增 launch。
