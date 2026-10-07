@@ -49,7 +49,7 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
 - 雙顯卡：設 `__NV_PRIME_RENDER_OFFLOAD=1`、`__GLX_VENDOR_LIBRARY_NAME=nvidia`，讓 GLVND 把 OpenGL 分派給 NVIDIA，再把畫面交給負責顯示的 X server。
 
 ### D3：映像
-單一 `docker/amr_sim/Dockerfile`（`docker/amr_sim/` 即此映像的 build context，只含 Dockerfile、entrypoint 與 config，不含原始碼；用預設檔名，不需 `-f`），`FROM osrf/ros:humble-desktop`（含 rviz2、rqt；官方 `ros:humble` 只有 core/base），一個 `RUN` 內 `apt-get update && apt-get install --no-install-recommends … && rm -rf /var/lib/apt/lists/*` 安裝 `ros-humble-ros-gz`、`navigation2`、`nav2-bringup`、`slam-toolbox`、`teleop-twist-keyboard`、`xacro`、`python3-pytest`、`python3-yaml`、`mesa-utils`、`x11-apps`、`liburdfdom-tools`（`check_urdf`，task 4.1 用，先裝避免重建）、`sudo`（容器內臨時除錯安裝）。
+單一 `docker/amr_sim/Dockerfile`（`docker/amr_sim/` 即此映像的 build context，只含 Dockerfile、entrypoint 與 config，不含原始碼；用預設檔名，不需 `-f`），`FROM osrf/ros:humble-desktop`（含 rviz2、rqt；官方 `ros:humble` 只有 core/base），一個 `RUN` 內 `apt-get update && apt-get install --no-install-recommends … && rm -rf /var/lib/apt/lists/*` 安裝 `ros-humble-ros-gz`、`navigation2`、`nav2-bringup`、`slam-toolbox`、`teleop-twist-keyboard`、`xacro`、`python3-pytest`、`python3-yaml`、`mesa-utils`、`x11-apps`、`sudo`（容器內臨時除錯安裝）。
 - update 與 install 同層：避免 update 層被快取而用到過期索引；清除 apt 清單必須在同層才會縮小映像。
 - 層順序由少變動到常變動。
 - 以 `ARG USER_UID`／`USER_GID`（預設 1000；compose 以 `${USER_UID:-1000}`／`${USER_GID:-1000}` 傳入，可由 shell 環境變數覆寫：`export USER_UID=$(id -u) USER_GID=$(id -g)`。注意 bash 的 `$UID` 是未 export 的 shell 變數，compose 讀不到）建立與主機同 UID 的使用者並以其執行：掛載的工作區中產生的檔案不會變成 root 擁有；同 UID 也讓 X 存取權不需對外放寬。
