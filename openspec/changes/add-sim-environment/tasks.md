@@ -47,7 +47,7 @@
 
 ## 6. 自動化冒煙測試
 
-- [ ] 6.1 （筆記 12）撰寫 `amr_hw_sim/test/test_sim_smoke.py`（launch_testing，headless 啟動 `world.launch.py` 與 `robot.launch.py hardware:=sim`）：30 s 內收到 `/amr1/scan` 與 `/amr1/odom`、無未帶 namespace 的車輛 topic、`amr1/odom → amr1/laser_link` TF 可查、送 `cmd_vel` 後 odom 位移 > 0、送 `linear.x = 5.0` 時 odom 線速度 ≤ 1.0、停送 1 s 內速度為 0、暫停模擬後 `/clock` 停止、正前方／後方光達讀值與場景幾何相符（±0.1 m）、`/clock` 恰一個發布者。筆記說明 headless 與 `--headless-rendering`（EGL）。驗證：`colcon test --packages-select amr_hw_sim && colcon test-result --verbose` 全部通過；若 EGL 不可用，依 design Risks 改用替代方式並記錄於踩坑紀錄
+- [x] 6.1 （筆記 12）撰寫 `amr_hw_sim/test/test_sim_smoke.py`（launch_testing，headless 啟動 `world.launch.py` 與 `robot.launch.py hardware:=sim`）：30 s 內收到 `/amr1/scan` 與 `/amr1/odom`、無未帶 namespace 的車輛 topic、`amr1/odom → amr1/laser_link` TF 可查、送 `cmd_vel` 後 odom 位移 > 0、送 `linear.x = 5.0` 時 odom 線速度 ≤ 1.0、停送 1 s 內速度為 0、暫停模擬後 `/clock` 停止、正前方／後方光達讀值與場景幾何相符（±0.1 m）、`/clock` 恰一個發布者。筆記說明 headless 與 `--headless-rendering`（EGL）。驗證：`colcon test --packages-select amr_hw_sim && colcon test-result --verbose` 全部通過；若 EGL 不可用，依 design Risks 改用替代方式並記錄於踩坑紀錄
 
 ## 7. 文件與整體驗收
 
