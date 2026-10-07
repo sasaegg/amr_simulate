@@ -21,6 +21,17 @@ git init -b main
 - `*`：套用到所有檔案。
 - `text=auto`：讓 git 自動判斷是文字檔還是二進位檔；二進位檔（圖片等）不會被轉換換行。
 - `eol=lf`：文字檔在**工作目錄**中一律使用 LF；repo 內部本來就統一存 LF。
+- 另外明確標記二進位檔（2026-10-07 補上）：
+
+  ```
+  *.png binary
+  *.jpg binary
+  *.pgm binary   # slam_toolbox 存出的地圖影像
+  *.stl binary   # 3D 模型
+  *.dae binary   # 3D 模型（COLLADA，本質是 XML）
+  ```
+
+  `binary` 等於 `-diff -merge -text`：不轉換換行、不做文字 diff 與合併。`text=auto` 只看檔案開頭有沒有 NUL 位元組來猜是不是二進位，**ASCII 版的 STL、XML 格式的 DAE、純文字變體的 PGM 會被誤判成文字檔而被改換行，模型或地圖就壞了**，所以要明確標記，不靠猜。
 - 這是 **repo 層級**的設定，會跟著 repo 走，任何人 clone 都生效；相對地 `core.autocrlf` 是**個人電腦層級**設定，靠每個人自己設，不可靠。
 
 `.gitignore`：
