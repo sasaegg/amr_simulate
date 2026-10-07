@@ -9,6 +9,8 @@ topic 用相對名稱，由 launch 以 namespace（例如 /amr1）放進各車�
 只負責轉發與逾時；速度截斷交給 DiffDrive 的速度上限。
 """
 
+import subprocess
+
 from geometry_msgs.msg import Twist
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -32,6 +34,19 @@ class CmdVelWatchdog(Node):
 
         self.get_logger().info(f'timeout={timeout}s，檢查頻率 {check_rate} Hz')
 
+    def stop_on_shutdown(self):
+        """結束前讓車停下：Gazebo 的 DiffDrive 會一直執行最後一筆指令，watchdog 一停就沒人送停車。
+
+        launch 結束時會同時對所有節點送 SIGINT，ROS → Gazebo 的 bridge 常常比這裡先結束，
+        所以不經過 bridge，直接用 ign topic 把零速度送進 Gazebo（watchdog 本身就是模擬側的假驅動板）。
+        """
+        gz_topic = self.resolve_topic_name('cmd_vel_gz')
+        try:
+            subprocess.run(['ign', 'topic', '-t', gz_topic, '-m', 'ignition.msgs.Twist', '-p', ''],
+                           timeout=3, capture_output=True)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
     def _now(self):
         return self.get_clock().now().nanoseconds * 1e-9
 
@@ -53,6 +68,7 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        node.stop_on_shutdown()
         node.destroy_node()
         rclpy.try_shutdown()
 

@@ -26,12 +26,12 @@
 - **THEN** 車輛出現在 Gazebo 中 `robot.yaml` 指定的位置
 
 #### Scenario: 停止車子系統但保留世界
-- **WHEN** 使用者在執行車子系統 launch 的 shell 按下 Ctrl+C
-- **THEN** robot 側的程序全部結束，Gazebo 與世界中的車體仍在，兩個容器仍在執行
+- **WHEN** 使用者在執行車子系統 launch 的 shell 按下 Ctrl+C（即使車輛正在移動）
+- **THEN** robot 側的程序全部結束，車輛停下並留在世界中，Gazebo 仍在執行，兩個容器仍在執行
 
 #### Scenario: 重新啟動車子系統不產生重複車輛
 - **WHEN** 車輛已在世界中（前一次車子系統已停止），使用者再次啟動車子系統
-- **THEN** 舊的車輛被移除並在 `robot.yaml` 指定位置重新生成，世界中只有一台該 id 的車輛
+- **THEN** 既有的車輛停下並被移回 `robot.yaml` 指定的位置與朝向，世界中只有一台該 id 的車輛
 
 #### Scenario: 停止世界
 - **WHEN** 使用者在執行世界 launch 的 shell 按下 Ctrl+C

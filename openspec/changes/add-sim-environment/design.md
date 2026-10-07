@@ -117,8 +117,8 @@ compose 以 `deploy.resources.reservations.devices: [{driver: nvidia, count: all
     - **虛擬底盤**：spawn（xacro 展開後以 `ros_gz_sim create -string` 生成，不依賴 robot 側的 `/robot_description`）、`cmd_vel_watchdog`（＝假驅動板的指令逾時；`/<id>/cmd_vel` → `/<id>/cmd_vel_gz`）、底盤 bridge（cmd_vel_gz、odom、`/<id>/tf`→`/tf`、joint_states）。
     - **虛擬光達**：只轉送 `/<id>/scan` 的 bridge（資料由 Gazebo gpu_lidar 依車輛實際位置計算）。
     - **虛擬 IMU**：只轉送 `/<id>/imu` 的 bridge。
-  - spawn 生命週期（`amr_hw_sim/spawn.py` 節點）：從 Gazebo 的 service 清單找出 `/world/<名稱>/create`，**等待世界出現**（robot 比 world 先啟動也不會失敗，逾時則報錯）；若同名實體已存在（前一次車子系統停止後車體留在世界中），先呼叫 `/world/<名稱>/remove` 移除再生成——每次啟動狀態一致。世界中多於一個 world 時報錯要求指定。
-  - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。放在 sim 側：真車的馬達驅動板本身有指令逾時，Fortress DiffDrive 沒有，watchdog 補的是「假驅動板」的功能；`cmd_vel_gz` 這個名稱只存在於模擬側，車子系統只看到標準的 `/<id>/cmd_vel`。
+  - spawn 生命週期（`amr_hw_sim/spawn.py`，console script `spawn_robot`）：從 Gazebo 的 service 清單找出 `/world/<名稱>/create`，**等待世界出現**（robot 比 world 先啟動也不會失敗，逾時則報錯）。沒有同名車輛時以 `ros_gz_sim create` 生成，**生成後確認車輛真的出現，否則重試**（create service 剛出現時世界可能還沒準備好，要求被丟掉但仍回報 OK；同名實體已存在時也回報 OK）。已有同名車輛（前一次車子系統停止後車體留在世界中）時：先送一次零速度讓車停下，再以 UserCommands 的 `/world/<名稱>/set_pose` 移回出生點並確認到位——**不移除再生成**，因為實測 Fortress 在移除同時帶 gpu_lidar 與 IMU 的模型後場景服務會壞掉（模型清單查不到、之後無法生成；只有其中一種感測器時正常）。移回後 DiffDrive 的里程計接續先前數值（odom 只是相對起點的座標系，起點不影響正確性）。世界中多於一個 world 時報錯要求指定。`ign model` 沒有指定 world 的參數，只支援單一世界。
+  - `cmd_vel_watchdog`：判斷邏輯為純 Python 類別、時間由外部傳入；rclpy 節點只是外殼。只做轉發與逾時（0.5 s 送一次零速度，之後不重複），截斷交給外掛。**結束時直接以 `ign topic` 送一次零速度進 Gazebo**：DiffDrive 會一直執行最後一筆指令，而 launch 結束時同時對所有節點送 SIGINT，ROS→Gazebo 的 bridge 常比 watchdog 先結束，經 bridge 送不到（實測車子在車子系統停止後仍以 0.58 m/s 前進）。放在 sim 側：真車的馬達驅動板本身有指令逾時，Fortress DiffDrive 沒有，watchdog 補的是「假驅動板」的功能；`cmd_vel_gz` 這個名稱只存在於模擬側，車子系統只看到標準的 `/<id>/cmd_vel`。
   - bridge 設定：`amr_hw_sim/bridge.py` 依元件產生 parameter_bridge 的 YAML（`base_config`、`lidar_config`、`imu_config`；`config_file` 參數只吃檔案，由 `write_bridge_config` 寫出）；Fortress 型別前綴為 `ignition.msgs.`；有測試比對 Gazebo 端 topic 與 xacro 設定一致。`/clock` 的設定由 `world.launch.py` 自行產生。
 
 TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_link, imu_link, 輪}`；子專案 2 的 slam_toolbox 再加 `map → amr1/odom`（REP-105：odom 連續會漂移、map 不漂移會跳動）。
@@ -144,7 +144,8 @@ TF 樹：`amr1/odom → amr1/base_footprint → amr1/base_link → amr1/{laser_l
 - [預先安裝 Nav2／slam_toolbox 讓映像變大] → 換取子專案 2 不需重建。
 - [車子系統比世界先啟動] → spawn 節點等待 `/world/<名稱>/create` 出現（有逾時），不直接失敗。
 - [Gazebo 中有多個 world] → spawn 無法自動判斷，報錯要求指定（第一版只有一個 world）。
-- [車子系統停止後車體留在世界中] → 刻意保留（像真車關機仍停在原地）；下次啟動先移除再生成，避免重名與里程計接續上次的值。
+- [車子系統停止後車體留在世界中] → 刻意保留（像真車關機仍停在原地）；watchdog 結束時直接對 Gazebo 送零速度讓車停下；下次啟動時停下並以 set_pose 移回出生點。
+- [Fortress 移除帶 gpu_lidar＋IMU 的模型後場景服務損壞]（實測）→ 不移除模型；若之後需要真正移除（例如多車動態加入／離開），再評估升級 Gazebo 版本。
 - [兩個容器的 `ROS_DOMAIN_ID` 不一致] → 兩者都讀同一個 `ros.env`。
 
 ## Migration Plan
