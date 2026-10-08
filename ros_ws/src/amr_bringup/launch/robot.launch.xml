@@ -9,6 +9,12 @@
     sim   include amr_hw_sim 的 sim_hardware.launch.xml（虛擬驅動，資料由 Gazebo 提供），使用模擬時間
     real  真車驅動（尚未提供）
   真車上不會安裝 amr_hw_sim：只在 hardware=sim 時以套件名稱尋找它，package.xml 不宣告相依。
+
+  mode（預設 none）：同時帶起的功能
+    none        只有驅動與共用節點
+    mapping     建圖（amr_navigation/mapping.launch.xml）
+    navigation  定位與導航（amr_navigation/navigation.launch.xml，地圖 map:=NAME）
+  建圖與導航也能在中控執行中單獨啟動／停止（不用重啟驅動），見 README。
 -->
 <launch>
   <arg name="hardware" description="必填：sim 或 real"/>
@@ -16,9 +22,16 @@
   <arg name="x" default="0.0" description="hardware=sim：車輛放進世界的位置 x（公尺）"/>
   <arg name="y" default="0.0" description="hardware=sim：位置 y（公尺）"/>
   <arg name="yaw" default="0.0" description="hardware=sim：朝向（弧度）"/>
+  <arg name="mode" default="none" description="none、mapping 或 navigation"/>
+  <arg name="map" default="warehouse_small" description="mode=navigation：地圖名稱（/data/maps/MAP.yaml）"/>
 
   <let name="is_sim" value="$(equals $(var hardware) sim)"/>
   <let name="is_real" value="$(equals $(var hardware) real)"/>
+  <let name="is_mapping" value="$(equals $(var mode) mapping)"/>
+  <let name="is_navigation" value="$(equals $(var mode) navigation)"/>
+  <let name="mode_ok" value="$(or $(equals $(var mode) none) $(or $(var is_mapping) $(var is_navigation)))"/>
+  <!-- 全部檢查都通過才啟動節點：hardware=sim 且 mode 合法 -->
+  <let name="run" value="$(and $(var is_sim) $(var mode_ok))"/>
 
   <!-- ==== hardware 檢查：不是 sim 就結束（real 尚未提供） ==== -->
   <group if="$(var is_real)">
@@ -29,10 +42,14 @@
     <log message="hardware 必須是 sim 或 real，收到 '$(var hardware)'"/>
     <shutdown reason="hardware 不正確"/>
   </group>
+  <group unless="$(var mode_ok)">
+    <log message="mode 必須是 none、mapping 或 navigation，收到 '$(var mode)'"/>
+    <shutdown reason="mode 不正確"/>
+  </group>
 
   <!-- 目前只有 sim 能啟動；提供真車驅動後，與硬體無關的節點改為 sim、real 都啟動 -->
-  <group if="$(var is_sim)">
-    <log message="robot_id=$(var robot_id) hardware=$(var hardware) use_sim_time=$(var is_sim)"/>
+  <group if="$(var run)">
+    <log message="robot_id=$(var robot_id) hardware=$(var hardware) mode=$(var mode) use_sim_time=$(var is_sim)"/>
 
     <!-- ==== 與硬體無關：依 URDF 與 joint_states 發布車身各零件的 TF ==== -->
     <node pkg="robot_state_publisher" exec="robot_state_publisher" namespace="$(var robot_id)" output="screen">
@@ -48,6 +65,17 @@
       <arg name="x" value="$(var x)"/>
       <arg name="y" value="$(var y)"/>
       <arg name="yaw" value="$(var yaw)"/>
+    </include>
+
+    <!-- ==== 功能：依 mode 帶起建圖或導航（與硬體無關，只用車輛標準介面） ==== -->
+    <include file="$(find-pkg-share amr_navigation)/launch/mapping.launch.xml" if="$(var is_mapping)">
+      <arg name="robot_id" value="$(var robot_id)"/>
+      <arg name="use_sim_time" value="$(var is_sim)"/>
+    </include>
+    <include file="$(find-pkg-share amr_navigation)/launch/navigation.launch.xml" if="$(var is_navigation)">
+      <arg name="robot_id" value="$(var robot_id)"/>
+      <arg name="use_sim_time" value="$(var is_sim)"/>
+      <arg name="map" value="$(var map)"/>
     </include>
   </group>
 </launch>

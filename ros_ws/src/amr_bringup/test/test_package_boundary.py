@@ -23,9 +23,11 @@ def test_no_simulation_package_dependency():
 
 
 def test_simulation_packages_are_only_used_when_hardware_is_sim():
-    # 虛擬驅動只在 hardware=sim 時以「套件名稱」在執行期尋找；其他地方不能提到模擬套件
+    # 虛擬驅動只在 hardware=sim（且 mode 合法）時以「套件名稱」在執行期尋找；其他地方不能提到模擬套件
     root = ET.parse(LAUNCH_FILE).getroot()
-    sim_groups = [g for g in root.iter('group') if g.get('if') == '$(var is_sim)']
+    lets = {e.get('name'): e.get('value') for e in root.iter('let')}
+    assert '$(var is_sim)' in lets['run']
+    sim_groups = [g for g in root.iter('group') if g.get('if') == '$(var run)']
     assert len(sim_groups) == 1
     inside = ET.tostring(sim_groups[0], encoding='unicode')
     sim_groups[0].clear()
@@ -41,3 +43,8 @@ def test_hardware_has_no_default():
             if a.get('name') and a.get('value') is None}
     assert 'hardware' in args
     assert args['hardware'].get('default') is None
+
+
+def test_navigation_package_is_part_of_vehicle_system():
+    # 建圖／導航屬於車子系統（真車也會跑），可以宣告相依；它自己也不依賴模擬套件（amr_navigation 的測試）
+    assert 'amr_navigation' in declared_dependencies()

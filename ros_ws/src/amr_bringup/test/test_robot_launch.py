@@ -34,3 +34,10 @@ def test_rejects_unknown_hardware(value):
     code, output = launch(f'hardware:={value}')
     assert f"hardware 必須是 sim 或 real，收到 '{value}'" in output
     assert 'robot_state_publisher' not in output
+
+
+@pytest.mark.parametrize('value', ['foo', 'Mapping', 'nav'])
+def test_rejects_unknown_mode(value):
+    code, output = launch('hardware:=sim', f'mode:={value}')
+    assert f"mode 必須是 none、mapping 或 navigation，收到 '{value}'" in output
+    assert 'robot_state_publisher' not in output
