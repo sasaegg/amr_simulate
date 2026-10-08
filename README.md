@@ -117,6 +117,8 @@ ros2 launch amr_worlds world.launch.xml world:=my_warehouse # 第 1 步產生的
 - 停止：Ctrl+C，或直接關掉 Gazebo 視窗（launch 會跟著結束）。
 - 看光達光束：Gazebo 右上角 ⋮ → Visualize Lidar → Topic 選 `/amr1/scan`（第 4 步之後；沒有就按 refresh）。
 
+![啟動世界：Gazebo 裡的 warehouse_small](docs/images/01_world.png)
+
 ### 3. 車輛模型：amr_description 的 URDF
 
 車輛定義在 [`ros_ws/src/amr_description/urdf/amr.urdf.xacro`](ros_ws/src/amr_description/urdf/amr.urdf.xacro)。xacro 是有變數與巨集的 URDF，展開後同一份 URDF 同時給兩個地方用：Gazebo 生成車體（含外掛與感測器），robot_state_publisher 發布車身各零件的 TF。**這一步不用執行指令**，第 4 步會自動展開；想看展開結果：
@@ -174,6 +176,8 @@ bridge（`/amr1/cmd_vel` 進 Gazebo；scan、odom、imu、joint_states、TF 出�
 - 車輛出現在 Gazebo 的 (1, 1)，車頭朝 +x。
 - 停止：Ctrl+C，車停下並留在世界中、Gazebo 繼續跑；再啟動會把車移回出生點（不會出現兩台）。
 
+![車子出現在出生點 (1, 1)，實體樹多了 amr1](docs/images/02_vehicle.png)
+
 確認與試開（robot 容器另開 shell）：
 
 ```bash
@@ -192,6 +196,8 @@ ros2 launch amr_rviz_plugins mapping_ui.launch.xml use_sim_time:=true
 ```
 
 RViz 開啟，顯示地圖、光達、車身，左下角是 **「AMR 建圖」面板**。
+
+![掃圖中（掃到一半）：白＝空曠、黑＝牆與貨架、灰綠＝還沒掃到，面板顯示已知比例](docs/images/03_mapping.png)
 
 **5.2 開車掃圖**（robot 容器另開 shell）：
 
@@ -250,6 +256,8 @@ RViz 操作順序：
 1. 工具列 **2D Pose Estimate**：在地圖上車子實際所在位置按下、拖出車頭方向。綠色箭頭（AMCL 粒子）聚到車周圍，紅色光達點和地圖的牆對齊。**沒給初始位姿前導航不會啟動**（終端機一直出現等待 `map` 的訊息是正常的）。
 2. 工具列 **2D Goal Pose**：點目標、拖出方向。藍線是規劃的路徑，車子開過去後停下。
 3. 目標在障礙物裡或到不了：Nav2 先試著脫困（原地轉、後退、等待），仍不行就放棄並停車（終端機顯示 `Goal failed`）。
+
+![導航中：costmap（障礙物膨脹）、AMCL 粒子、藍色規劃路徑](docs/images/04_navigation.png)
 
 - `map:=<名稱>` 載入 `docker/amr_sim/data/maps/<名稱>.yaml`。地圖座標是 5.3 標好的倉庫座標（`warehouse_small`：＝ Gazebo 世界座標，車在出生點時 2D Pose Estimate 點在 (1, 1)）。
 - 導航速度上限 0.5 m/s、1.0 rad/s；路上臨時出現的障礙物會繞開或重新規劃。
