@@ -24,7 +24,7 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 | `amr_bringup` | 車子系統中控 `robot.launch.xml` | ✅ |
 | `amr_worlds` | 場景產生器、world、`world.launch.xml` | ❌ |
 | `amr_hw_sim` | 虛擬驅動 `sim_hardware.launch.xml`、冒煙測試 | ❌ |
-| `amr_navigation` | 建圖 `mapping.launch.xml`、RViz 設定檔（導航：子專案 2 進行中） | ✅ |
+| `amr_navigation` | 建圖 `mapping.launch.xml`、導航 `navigation.launch.xml`、參數、RViz 設定檔 | ✅ |
 
 車輛對外介面（硬體介面）：`/amr1/cmd_vel`（輸入）、`/amr1/scan`、`/amr1/odom`、`/amr1/imu`、`/amr1/joint_states`、`/tf`（`amr1/odom → amr1/base_footprint`）、`/tf_static`；模擬時另有 `/clock`。所有 frame 帶 `amr1/` 前綴。
 
@@ -155,6 +155,29 @@ ros2 run nav2_map_server map_saver_cli -f /data/maps/warehouse_small --ros-args 
 - `-r map:=/amr1/map`：map_saver 預設訂閱 `/map`，地圖在 namespace 下。
 - **同名會直接覆蓋**，建新圖請換名字；`data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
 
+## 定位與導航
+
+在存好的地圖上定位（map_server + AMCL），點目標讓車自己開過去（Nav2：NavFn 規劃 + DWB 控制）。
+
+```bash
+# 世界與車子系統已在執行；robot 容器內另開 shell：
+ros2 launch amr_navigation navigation.launch.xml use_sim_time:=true map:=warehouse_small
+
+# RViz
+rviz2 -d $(ros2 pkg prefix amr_navigation)/share/amr_navigation/config/navigate.rviz
+```
+
+RViz 操作順序：
+1. 工具列 **2D Pose Estimate**：在地圖上車子實際所在的位置按下、拖出車頭方向。綠色箭頭（AMCL 粒子）會聚到車子周圍。**沒給初始位姿前，導航不會啟動**（planner 在等 `map` 座標系）。
+2. 工具列 **2D Goal Pose**：點目標位置、拖出方向。藍線是全域路徑，車子沿路開過去，抵達後停下。
+3. 目標在障礙物裡或到不了：Nav2 會先試著脫困（原地轉、後退、等待），仍不行就放棄並停車（終端機顯示 `Goal failed`）。
+
+- `map:=<名稱>` 載入 `data/maps/<名稱>.yaml`。
+- 導航速度上限 0.5 m/s、1.0 rad/s（硬體上限是 1.0、1.5）。
+- **導航時不要同時用 teleop**：兩邊都發 `/amr1/cmd_vel`，會互搶。
+- 停止導航（Ctrl+C）後車子 1 秒內停下（虛擬驅動的指令逾時）。
+- 地圖座標 ≠ Gazebo 世界座標：repo 的地圖從出生點 (1, 1) 開始建，所以世界座標 = 地圖座標 + (1, 1)。
+
 ## 沒有 NVIDIA GPU：軟體渲染
 
 ```bash
@@ -165,14 +188,16 @@ docker/amr_sim/up_gpu.sh         # 切回 GPU
 ## 測試
 
 ```bash
-# sim 容器內
+# robot 容器內（整合測試會同時啟動世界與車子系統，導航測試需要 /data 的地圖）
 cd /ros_ws && colcon build --symlink-install
-colcon test && colcon test-result --verbose            # 全部（含啟動模擬的冒煙測試）
-cd src/amr_hw_sim && launch_test test/test_sim_smoke.py   # 冒煙測試的每項結果
+colcon test && colcon test-result --verbose               # 全部（含 3 個啟動模擬的冒煙測試，約 2 分鐘）
+cd src/amr_hw_sim && launch_test test/test_navigation_smoke.py   # 單一冒煙測試的每項結果
 
 # 純邏輯測試不需要 ROS（任一容器）
 cd /ros_ws/src/amr_worlds && env -i PATH=/usr/bin:/bin python3 -m pytest -q test
 ```
+
+冒煙測試：`test_sim_smoke`（車輛介面）、`test_mapping_smoke`（建圖、存圖）、`test_navigation_smoke`（定位、導航、失敗回報；用 `data/maps/warehouse_small`）。模擬開著時也能跑：先 `export ROS_DOMAIN_ID=<少見的數字> IGN_PARTITION=test`，測試就不會和開著的世界互相干擾。
 
 ## 疑難排解
 
@@ -186,4 +211,9 @@ cd /ros_ws/src/amr_worlds && env -i PATH=/usr/bin:/bin python3 -m pytest -q test
 | `Unable to find or download file`，世界的 launch 隨即結束 | world 名稱打錯，或新增的 world 還沒 `colcon build`（launch 第一行會印出嘗試載入的路徑） |
 | 車子系統啟動報 `missing required argument 'hardware'` | 啟動時要加 `hardware:=sim` |
 | build 報 `can't copy ... doesn't exist` | 刪除原始檔後 `build/` 留下斷掉的 symlink：刪除該套件的 `ros_ws/build/<套件>`、`ros_ws/install/<套件>` 後重建 |
+| 導航啟動後沒反應、`ros2 lifecycle get` 卡住 | 還沒給初始位姿：planner 在等 `map` 座標系，先在 RViz 點 2D Pose Estimate |
+| RViz 點 2D Pose Estimate／2D Goal Pose 沒反應 | 工具的 topic 沒帶 namespace；用 `config/navigate.rviz`（`/amr1/initialpose`、`/amr1/goal_pose`） |
+| `Failed to load map yaml file: /data/maps/xxx.yaml` | 地圖名稱打錯，或 robot 容器沒有 `/data` 掛載（`up_gpu.sh` 重建容器） |
+| `Lookup would require extrapolation`、costmap 一直等 TF | 有節點沒用模擬時間：單獨啟動導航／建圖時要加 `use_sim_time:=true` |
+| 目標點在牆邊回報失敗 | 目標落在障礙物或膨脹範圍（車寬一半）內；點遠一點。刻意不改去附近的替代點（避免停在錯的位置卻回報成功） |
 | 外接螢幕接在 NVIDIA、Wayland 黑畫面 | `/etc/gdm3/custom.conf` 設 `WaylandEnable=false` 改用 Xorg（筆記 02） |
