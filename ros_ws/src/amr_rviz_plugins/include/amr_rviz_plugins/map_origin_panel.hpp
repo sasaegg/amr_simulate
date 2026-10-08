@@ -1,6 +1,7 @@
 // AMR 地圖原點面板（RViz 外掛）：顯示「設定原點」工具選取的位置與方向，按「套用」呼叫
-// /<id>/map_origin/set 改寫地圖檔，成功後請顯示用的 map_server 重新載入。
-// 要改寫哪張地圖，取自顯示用 map_server（/<id>/map_origin_viewer）的 yaml_filename 參數——
+// /map_origin/set 改寫地圖檔，成功後請顯示用的 map_server 重新載入。
+// 地圖原點是倉庫的屬性、和車輛無關，所以名稱都不帶車輛 namespace。
+// 要改寫哪張地圖，取自顯示用 map_server（/map_origin_viewer）的 yaml_filename 參數——
 // 面板顯示的地圖一定就是要改的那張，不會手打名稱打錯。
 
 #ifndef AMR_RVIZ_PLUGINS__MAP_ORIGIN_PANEL_HPP_
@@ -18,7 +19,6 @@
 
 class QCheckBox;
 class QLabel;
-class QLineEdit;
 class QPushButton;
 class QTimer;
 
@@ -43,15 +43,13 @@ public:
 
 private Q_SLOTS:
   void onApplyClicked();
-  void onRobotIdChanged();
   void refresh();
 
 private:
-  void connectToRobot();
+  void connectServices();
   void requestMapName();
   double appliedYaw() const;
 
-  QLineEdit * robot_id_edit_;
   QLabel * map_label_;
   QLabel * candidate_label_;
   QCheckBox * snap_check_;
@@ -60,7 +58,6 @@ private:
   QTimer * timer_;
 
   rclcpp::Node::SharedPtr node_;
-  std::string robot_id_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr candidate_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr candidate_pub_;  // 套用後把預覽移到新原點
   rclcpp::Client<amr_interfaces::srv::SetMapOrigin>::SharedPtr set_client_;

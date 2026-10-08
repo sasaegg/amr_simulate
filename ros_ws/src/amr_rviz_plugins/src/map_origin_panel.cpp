@@ -3,7 +3,6 @@
 #include <QCheckBox>
 #include <QFormLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTimer>
@@ -36,8 +35,6 @@ double yawOf(const geometry_msgs::msg::Quaternion & q)
 MapOriginPanel::MapOriginPanel(QWidget * parent)
 : rviz_common::Panel(parent)
 {
-  robot_id_edit_ = new QLineEdit("amr1");
-  robot_id_edit_->setObjectName("robot_id");
   map_label_ = new QLabel("（等待顯示用的地圖）");
   map_label_->setObjectName("map");
   candidate_label_ = new QLabel("用工具列「設定原點」在地圖上按下＝位置、拖曳＝x 軸方向");
@@ -54,7 +51,6 @@ MapOriginPanel::MapOriginPanel(QWidget * parent)
   result_label_->setWordWrap(true);
 
   auto form = new QFormLayout;
-  form->addRow("車輛", robot_id_edit_);
   form->addRow("地圖", map_label_);
 
   auto layout = new QVBoxLayout;
@@ -67,9 +63,7 @@ MapOriginPanel::MapOriginPanel(QWidget * parent)
   setLayout(layout);
 
   connect(apply_button_, &QPushButton::clicked, this, &MapOriginPanel::onApplyClicked);
-  connect(robot_id_edit_, &QLineEdit::editingFinished, this, &MapOriginPanel::onRobotIdChanged);
   connect(snap_check_, &QCheckBox::toggled, this, [this] {refresh(); Q_EMIT configChanged();});
-  connect(robot_id_edit_, &QLineEdit::textChanged, this, [this] {Q_EMIT configChanged();});
 
   timer_ = new QTimer(this);
   connect(timer_, &QTimer::timeout, this, &MapOriginPanel::refresh);
@@ -101,51 +95,34 @@ std::string MapOriginPanel::mapNameFromYaml(const std::string & yaml_filename)
 void MapOriginPanel::onInitialize()
 {
   node_ = getDisplayContext()->getRosNodeAbstraction().lock()->get_raw_node();
-  connectToRobot();
+  connectServices();
   timer_->start(500);
 }
 
 void MapOriginPanel::load(const rviz_common::Config & config)
 {
   rviz_common::Panel::load(config);
-  QString value;
-  if (config.mapGetString("robot_id", &value)) {
-    robot_id_edit_->setText(value);
-  }
   bool snap = true;
   if (config.mapGetBool("snap", &snap)) {
     snap_check_->setChecked(snap);
   }
-  // RViz 先呼叫 onInitialize() 再 load()：車輛 id 沒變就不要重建連線（會丟掉進行中的請求）
-  if (node_ && robot_id_edit_->text().trimmed().toStdString() != robot_id_) {
-    connectToRobot();
-  }
+  // RViz 先呼叫 onInitialize() 再 load()：這裡不重建連線（重建會丟掉進行中的服務請求）
 }
 
 void MapOriginPanel::save(rviz_common::Config config) const
 {
   rviz_common::Panel::save(config);
-  config.mapSetValue("robot_id", robot_id_edit_->text());
   config.mapSetValue("snap", snap_check_->isChecked());
 }
 
-void MapOriginPanel::onRobotIdChanged()
+void MapOriginPanel::connectServices()
 {
-  if (node_ && robot_id_edit_->text().trimmed().toStdString() != robot_id_) {
-    connectToRobot();
-  }
-}
-
-void MapOriginPanel::connectToRobot()
-{
-  robot_id_ = robot_id_edit_->text().trimmed().toStdString();
-  const std::string ns = "/" + robot_id_;
   have_candidate_ = false;
   map_name_.clear();
   // 換掉客戶端時，舊客戶端等待中的回覆會一起被丟掉、回呼不會執行；忙碌狀態要歸零，否則按鈕永遠是灰的
   busy_ = false;
   candidate_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-    ns + "/map_origin/candidate", 10,
+    "/map_origin/candidate", 10,
     [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr msg) {
       if (ignore_next_candidate_) {
         ignore_next_candidate_ = false;
@@ -158,12 +135,12 @@ void MapOriginPanel::connectToRobot()
       refresh();
     });
   candidate_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
-    ns + "/map_origin/candidate", 10);
-  set_client_ = node_->create_client<amr_interfaces::srv::SetMapOrigin>(ns + "/map_origin/set");
-  load_client_ = node_->create_client<nav2_msgs::srv::LoadMap>(ns + "/map_origin_viewer/load_map");
+    "/map_origin/candidate", 10);
+  set_client_ = node_->create_client<amr_interfaces::srv::SetMapOrigin>("/map_origin/set");
+  load_client_ = node_->create_client<nav2_msgs::srv::LoadMap>("/map_origin_viewer/load_map");
   // 讀顯示用 map_server 的 yaml_filename：呼叫它的 get_parameters 服務
   viewer_params_ = node_->create_client<rcl_interfaces::srv::GetParameters>(
-    ns + "/map_origin_viewer/get_parameters");
+    "/map_origin_viewer/get_parameters");
   refresh();
 }
 
@@ -197,7 +174,7 @@ void MapOriginPanel::refresh()
 {
   if (map_name_.empty()) {
     requestMapName();
-    map_label_->setText(QString("（等待 /%1/map_origin_viewer）").arg(QString::fromStdString(robot_id_)));
+    map_label_->setText("（等待 /map_origin_viewer）");
   } else {
     map_label_->setText(QString::fromStdString(map_name_));
   }

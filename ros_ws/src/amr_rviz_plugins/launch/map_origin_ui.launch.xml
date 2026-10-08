@@ -1,34 +1,29 @@
 <!--
   標地圖原點 UI：載入存好的地圖顯示在 RViz，用「設定原點」工具選位置與方向，面板「套用」改寫地圖檔。
-  不需要世界與車子系統。
+  地圖原點是倉庫的屬性、和車輛無關：不需要世界與車子系統，名稱也都不帶車輛 namespace。
 
-  用法（robot 容器內）：
+  用法（robot 容器內：地圖在 /data/maps）：
     ros2 launch amr_rviz_plugins map_origin_ui.launch.xml map:=warehouse_small
 -->
 <launch>
-  <arg name="robot_id" default="amr1" description="車輛 id（namespace）"/>
   <arg name="map" description="必填：要標原點的地圖名稱（/data/maps/MAP.yaml）"/>
 
-  <group>
-    <push-ros-namespace namespace="$(var robot_id)"/>
+  <!-- 顯示用的 map_server：名稱、topic 和導航用的分開（/map_origin_viewer、/map_origin/map），不會衝突。
+       面板從它的 yaml_filename 參數得知要改哪張地圖，套用後呼叫它的 load_map 重新載入 -->
+  <node pkg="nav2_map_server" exec="map_server" name="map_origin_viewer" output="screen">
+    <param name="yaml_filename" value="/data/maps/$(var map).yaml"/>
+    <param name="topic_name" value="map_origin/map"/>
+    <param name="frame_id" value="map"/>
+  </node>
+  <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_map_origin" output="screen">
+    <param name="autostart" value="true"/>
+    <param name="node_names" value="['map_origin_viewer']"/>
+  </node>
 
-    <!-- 顯示用的 map_server：名稱、topic 都和導航用的分開（map_origin_viewer、map_origin/map），不會衝突。
-         面板從它的 yaml_filename 參數得知要改哪張地圖，套用後呼叫它的 load_map 重新載入 -->
-    <node pkg="nav2_map_server" exec="map_server" name="map_origin_viewer" output="screen">
-      <param name="yaml_filename" value="/data/maps/$(var map).yaml"/>
-      <param name="topic_name" value="map_origin/map"/>
-      <param name="frame_id" value="map"/>
-    </node>
-    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_map_origin" output="screen">
-      <param name="autostart" value="true"/>
-      <param name="node_names" value="['map_origin_viewer']"/>
-    </node>
-
-    <!-- 標地圖原點服務 /ID/map_origin/set（改寫 /data/maps 下的地圖檔） -->
-    <node pkg="amr_navigation" exec="map_origin_server" name="map_origin_server" output="screen">
-      <param name="maps_dir" value="/data/maps"/>
-    </node>
-  </group>
+  <!-- 標地圖原點服務 /map_origin/set（改寫 /data/maps 下的地圖檔） -->
+  <node pkg="amr_navigation" exec="map_origin_server" name="map_origin_server" output="screen">
+    <param name="maps_dir" value="/data/maps"/>
+  </node>
 
   <!-- RViz 關掉時整個 UI 一起結束 -->
   <node pkg="rviz2" exec="rviz2" name="rviz_map_origin" output="screen" on_exit="shutdown"

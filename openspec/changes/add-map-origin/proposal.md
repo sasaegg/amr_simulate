@@ -8,7 +8,7 @@ slam_toolbox 以「開始建圖時車輛的位置」當地圖原點，所以地�
 
 - 新增「標地圖原點」：在存好的地圖上以 RViz 點選原點位置、拖曳 x 軸方向，按「套用」改寫地圖檔，使選取的點成為 (0, 0)、拖曳方向成為 +x。
   - 新套件 `amr_interfaces`：自訂服務 `SetMapOrigin.srv`。
-  - `amr_navigation`：純 Python 的地圖改寫模組（平移、90° 倍數無損旋轉、任意角度最近鄰重新取樣），以及提供 `/<id>/map_origin/set` 的服務節點；改寫前備份、原子寫入。
+  - `amr_navigation`：純 Python 的地圖改寫模組（平移、90° 倍數無損旋轉、任意角度最近鄰重新取樣），以及提供 `/map_origin/set` 的服務節點（和車輛無關，不帶車輛 namespace）；改寫前備份、原子寫入。
   - `amr_rviz_plugins`：「AMR 地圖原點」面板（選取結果、對齊 90° 倍數、套用與確認、結果）、`map_origin.rviz`、`map_origin_ui.launch.xml`。
 - repo 的 `warehouse_small` 地圖以同一服務把原點改為倉庫左下角（地圖座標 = Gazebo 世界座標）；導航冒煙測試改以世界座標給初始位姿與目標，移除 (1, 1) 換算。
 - 文件：README 新增「5.3 標地圖原點」並移除 (1, 1) 慣例；學習筆記 25。

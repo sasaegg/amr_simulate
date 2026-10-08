@@ -1,9 +1,11 @@
-"""標地圖原點的服務節點：/<id>/map_origin/set（amr_interfaces/srv/SetMapOrigin）。
+"""標地圖原點的服務節點：/map_origin/set（amr_interfaces/srv/SetMapOrigin）。
+
+地圖原點是倉庫的屬性、和車輛無關，所以不放在車輛 namespace 下。
 
 改寫邏輯都在 map_origin.py（純 Python、有測試）；這裡只是 ROS 外殼。
 放在車上：地圖檔在車上的 /data/maps，RViz 面板在哪台電腦都只是呼叫這個服務。
 
-    ros2 run amr_navigation map_origin_server --ros-args -r __ns:=/amr1 -p maps_dir:=/data/maps
+    ros2 run amr_navigation map_origin_server --ros-args -p maps_dir:=/data/maps
 """
 
 import math
@@ -20,7 +22,7 @@ class MapOriginServer(Node):
     def __init__(self):
         super().__init__('map_origin_server')
         self.declare_parameter('maps_dir', '/data/maps')
-        # 相對名稱：在 namespace amr1 下是 /amr1/map_origin/set
+        # 不在 namespace 下啟動 → /map_origin/set
         self.create_service(SetMapOrigin, 'map_origin/set', self.on_set_origin)
 
     # 注意：不能命名為 handle——會蓋掉 rclpy Node 內建的 handle 屬性（底層節點物件）

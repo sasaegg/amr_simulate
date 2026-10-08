@@ -81,18 +81,23 @@ def test_map_origin_rviz_uses_namespaced_topics_and_tool():
     vm = config['Visualization Manager']
     assert [p for p in config['Panels'] if p['Class'] == 'amr_rviz_plugins/MapOriginPanel']
     tools = [t for t in vm['Tools'] if t['Class'] == 'amr_rviz_plugins/SetOriginTool']
-    assert len(tools) == 1 and tools[0]['Topic']['Value'] == '/amr1/map_origin/candidate'
+    assert len(tools) == 1 and tools[0]['Topic']['Value'] == '/map_origin/candidate'
     # 不應出現會被誤認為導航目標的工具
     assert not [t for t in vm['Tools'] if t['Class'] in ('rviz_default_plugins/SetGoal',
                                                          'rviz_default_plugins/SetInitialPose')]
     topics = {d['Name']: d['Topic']['Value'] for d in vm['Displays'] if 'Topic' in d}
-    assert topics == {'Map': '/amr1/map_origin/map', '新原點': '/amr1/map_origin/candidate'}
+    assert topics == {'Map': '/map_origin/map', '新原點': '/map_origin/candidate'}
+    # 地圖原點和車輛無關：面板設定沒有車輛 id
+    panel = [p for p in config['Panels'] if p['Class'] == 'amr_rviz_plugins/MapOriginPanel'][0]
+    assert 'robot_id' not in panel
 
 
 def test_map_origin_ui_launch():
     root = ET.parse(PACKAGE_DIR / 'launch' / 'map_origin_ui.launch.xml').getroot()
     args = {a.get('name'): a for a in root.iter('arg')}
+    assert set(args) == {'map'}                                   # 和車輛無關：沒有 robot_id
     assert args['map'].get('default') is None                    # 必填：不會改到預設地圖
+    assert root.find('.//push-ros-namespace') is None
     nodes = {n.get('name'): n for n in root.iter('node')}
     viewer = {p.get('name'): p.get('value') for p in nodes['map_origin_viewer'].iter('param')}
     assert viewer['yaml_filename'] == '/data/maps/$(var map).yaml'
@@ -106,3 +111,4 @@ def test_map_origin_panel_targets_viewer_and_service():
     for name in ('"/map_origin/set"', '"/map_origin/candidate"', '"/map_origin_viewer/load_map"',
                  '"/map_origin_viewer/get_parameters"'):
         assert name in source, name
+    assert 'robot_id' not in source

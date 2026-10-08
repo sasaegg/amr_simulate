@@ -31,16 +31,18 @@
 |---|---|---|
 | `SetMapOrigin.srv` | 新 `amr_interfaces`（ament_cmake + rosidl_default_generators） | 請求 `string map_name`、`float64 x`、`float64 y`、`float64 yaw`；回應 `bool success`、`string message` |
 | `map_origin.py` | `amr_navigation` | 純 Python + numpy：讀寫 PGM（P5）與 yaml、計算新 origin、旋轉／重新取樣、備份、原子寫入（mkstemp + os.replace，同 gen_world）。不依賴 ROS |
-| `map_origin_server` | `amr_navigation`（console script） | 節點在 namespace `<id>` 下，服務 `map_origin/set`（`/<id>/map_origin/set`），參數 `maps_dir`（預設 `/data/maps`）；名稱白名單與存圖面板相同 |
-| `MapOriginPanel` | `amr_rviz_plugins` | 訂閱 `/<id>/map_origin/candidate`（PoseStamped）顯示 x、y、拖曳角度與套用角度；「對齊 90° 倍數」勾選；「套用」→ 確認 → 非同步呼叫服務 → 成功後呼叫 map_server 的 `load_map`（nav2_msgs/LoadMap）重新載入 |
-| `map_origin.rviz` | `amr_rviz_plugins` | Map（`/<id>/map_origin/map`）、Grid、Axes（原點）、Pose（候選箭頭）；工具：Move Camera、**設定原點**＝ SetGoal 改 topic 為 `/<id>/map_origin/candidate` |
-| `map_origin_ui.launch.xml` | `amr_rviz_plugins` | 參數 `robot_id`、`map`；啟動 map_server（節點 `map_origin_viewer`、namespace `<id>`、topic `map_origin/map`、載入 `/data/maps/<map>.yaml`）＋ lifecycle_manager、`map_origin_server`、RViz |
+| `map_origin_server` | `amr_navigation`（console script） | 服務 `/map_origin/set`（不放在車輛 namespace 下），參數 `maps_dir`（預設 `/data/maps`）；名稱白名單與存圖面板相同 |
+| `MapOriginPanel` | `amr_rviz_plugins` | 訂閱 `/map_origin/candidate`（PoseStamped）顯示 x、y、拖曳角度與套用角度；「對齊 90° 倍數」勾選；「套用」→ 確認 → 非同步呼叫服務 → 成功後呼叫 map_server 的 `load_map`（nav2_msgs/LoadMap）重新載入 |
+| `map_origin.rviz` | `amr_rviz_plugins` | Map（`/map_origin/map`）、Grid、Axes（原點）、Pose（候選箭頭）；工具：Move Camera、**設定原點**＝ SetGoal 改 topic 為 `/map_origin/candidate` |
+| `map_origin_ui.launch.xml` | `amr_rviz_plugins` | 參數 `map`（必填）；啟動 map_server（節點 `/map_origin_viewer`、topic `/map_origin/map`、載入 `/data/maps/<map>.yaml`）＋ lifecycle_manager、`map_origin_server`、RViz |
 
 - 「設定原點」工具：繼承 RViz 內建的 GoalTool（2D Goal Pose），只改名稱為「設定原點」、topic 由設定檔指定——避免在這個畫面看到「2D Goal Pose」而誤以為是導航目標。
-- 面板從 `/<id>/map_origin_viewer/get_parameters` 讀 `yaml_filename` 得知要改的地圖（不讓使用者手打名稱）；套用成功後呼叫 `load_map` 重新載入，並發布 (0, 0, 0) 到 candidate，讓預覽座標軸移到新原點（否則會留在舊座標的位置）。
+- 面板從 `/map_origin_viewer/get_parameters` 讀 `yaml_filename` 得知要改的地圖（不讓使用者手打名稱）；套用成功後呼叫 `load_map` 重新載入，並發布 (0, 0, 0) 到 candidate，讓預覽座標軸移到新原點（否則會留在舊座標的位置）。
 - RViz 先呼叫面板的 `onInitialize()` 再 `load()`：`load()` 只在車輛 id 改變時才重建連線——重建會丟掉進行中的服務請求、回呼不執行（task 2.1 實測：忙碌狀態卡住、按鈕永遠是灰的；建圖面板一併修正）。
 - 顯示用的 map_server 用獨立的節點名稱與 topic（`map_origin_viewer`、`map_origin/map`），和導航的 map_server（`/amr1/map`）不衝突；不需要世界與車子系統。
 - 服務在車上、面板只呼叫服務（同 add-navigation D11）。
+
+- **不帶車輛 namespace**（使用者指出，task 4.1 驗收時）：地圖原點是倉庫的屬性、和哪一台車無關，所以面板沒有車輛欄位、launch 沒有 `robot_id`，服務與 topic 都是 `/map_origin/...`、`/map_origin_viewer`。
 
 ### D4：錯誤處理與備份
 

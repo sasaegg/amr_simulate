@@ -8,11 +8,11 @@
   <class name="amr_rviz_plugins/MapOriginPanel"
          type="amr_rviz_plugins::MapOriginPanel"
          base_class_type="rviz_common::Panel">
-    <description>AMR 地圖原點：在存好的地圖上選取原點與方向，按「套用」改寫地圖檔（/ID/map_origin/set）。</description>
+    <description>AMR 地圖原點：在存好的地圖上選取原點與方向，按「套用」改寫地圖檔（/map_origin/set）。</description>
   </class>
   <class name="amr_rviz_plugins/SetOriginTool"
          type="amr_rviz_plugins::SetOriginTool"
          base_class_type="rviz_common::Tool">
-    <description>設定原點：按下＝位置、拖曳＝x 軸方向（同 2D Goal Pose，發布到 /ID/map_origin/candidate）。</description>
+    <description>設定原點：按下＝位置、拖曳＝x 軸方向（同 2D Goal Pose，發布到 /map_origin/candidate）。</description>
   </class>
 </library>
