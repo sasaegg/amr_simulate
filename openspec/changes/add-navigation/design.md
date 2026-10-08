@@ -85,7 +85,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 
 ### D7：RViz 設定檔
 
-`config/navigate.rviz`：Fixed Frame `map`；Map（`/amr1/map`，Durability Transient Local）、LaserScan、TF、RobotModel（TF Prefix `amr1`）、全域／局部 costmap、全域路徑（`/amr1/plan`）；**2D Pose Estimate 工具 topic 設為 `/amr1/initialpose`、Nav2 Goal 設為 `/amr1/goal_pose`**——RViz 工具預設發到無 namespace 的 `/initialpose`、`/goal_pose`，Nav2 在 namespace 下收不到。設定檔寫死 `amr1`（RViz 設定檔不支援代換；多車時另存一份）。
+`config/navigate.rviz`：Fixed Frame `map`；Map（`/amr1/map`，Durability Transient Local）、LaserScan、TF、RobotModel（TF Prefix `amr1`）、全域／局部 costmap、全域路徑（`/amr1/plan`）；**2D Pose Estimate 工具 topic 設為 `/amr1/initialpose`、2D Goal Pose 設為 `/amr1/goal_pose`**——RViz 工具預設發到無 namespace 的 `/initialpose`、`/goal_pose`，Nav2 在 namespace 下收不到。不用 Nav2 的 RViz 外掛（Navigation 2 面板、GoalTool）：Humble 版直接呼叫 `/navigate_to_pose`，不支援 namespace；bt_navigator 訂閱 `goal_pose` 收到即開始導航，效果相同。設定檔寫死 `amr1`（RViz 設定檔不支援代換；多車時另存一份）。
 
 ### D8：執行資料目錄與地圖版控
 

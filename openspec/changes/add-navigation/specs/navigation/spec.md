@@ -32,7 +32,7 @@
 - **THEN** TF `map → amr1/base_footprint` 與車輛在世界中的實際位置相差 0.3 m 以內
 
 ### Requirement: 導航到目標位姿
-導航模式 SHALL 接受地圖座標系 `map` 中的目標位姿（RViz 的 Nav2 Goal，或 `/<id>/navigate_to_pose` action），規劃避開地圖障礙物的路徑並自動行駛，抵達後停車並回報成功。導航時線速度 SHALL 不超過 0.5 m/s、角速度不超過 1.0 rad/s。
+導航模式 SHALL 接受地圖座標系 `map` 中的目標位姿（RViz 的 2D Goal Pose，即 `/<id>/goal_pose`；或 `/<id>/navigate_to_pose` action），規劃避開地圖障礙物的路徑並自動行駛，抵達後停車並回報成功。導航時線速度 SHALL 不超過 0.5 m/s、角速度不超過 1.0 rad/s。
 
 #### Scenario: 到達可到達的目標
 - **WHEN** 定位完成後送出地圖中空曠處的目標位姿
