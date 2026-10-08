@@ -17,7 +17,7 @@ launch_testing = pytest.importorskip('launch_testing')
 from ament_index_python.packages import get_package_share_directory  # noqa: E402
 from geometry_msgs.msg import Twist  # noqa: E402
 from launch import LaunchDescription  # noqa: E402
-from launch.actions import IncludeLaunchDescription, TimerAction  # noqa: E402
+from launch.actions import IncludeLaunchDescription, SetLaunchConfiguration, TimerAction  # noqa: E402
 from launch.launch_description_sources import AnyLaunchDescriptionSource  # noqa: E402
 import launch_testing.actions  # noqa: E402
 from nav_msgs.msg import OccupancyGrid  # noqa: E402
@@ -42,6 +42,9 @@ def include(package, launch_file, **arguments):
 @pytest.mark.launch_test
 def generate_test_description():
     return LaunchDescription([
+        # 測試結束時所有程序同時收到 SIGINT，Gazebo 偶爾要超過預設的 5 秒才結束（3 次有 2 次被 SIGKILL）；
+        # 單獨關閉時 0.2 秒。放寬升級到 SIGTERM／SIGKILL 前的等待時間，關閉檢查才反映真正的問題
+        SetLaunchConfiguration('sigterm_timeout', '20'),
         include('amr_worlds', 'world.launch.xml', world=WORLD, headless='true'),
         TimerAction(period=3.0, actions=[
             include('amr_bringup', 'robot.launch.xml',
