@@ -18,7 +18,7 @@
 
 ## 4. 驗收
 
-- [ ] 4.1 （筆記 25）使用者以 `map_origin_ui.launch.xml` 在複製出的地圖上點選、套用，確認座標軸移到新原點、備份檔存在；以 `warehouse_small` 導航時 RViz 座標與 Gazebo 世界座標一致。結果記錄於筆記 25
+- [x] 4.1 （筆記 25）使用者以 `map_origin_ui.launch.xml` 在複製出的地圖上點選、套用，確認座標軸移到新原點、備份檔存在；以 `warehouse_small` 導航時 RViz 座標與 Gazebo 世界座標一致。結果記錄於筆記 25
 
 ## Workflow follow-up
 
