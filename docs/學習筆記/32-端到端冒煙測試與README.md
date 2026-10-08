@@ -39,10 +39,18 @@ include('amr_server', 'server.launch.xml', robots=ROBOT_ID, port=str(PORT), use_
 - **用 Python 標準庫的 `urllib` 打 HTTP、`websockets.sync.client` 收推送**：測試的角色就是「一個網頁」，不 import 任何後端程式碼。
 - **真實位置**用 `ign model -m amr1 -p` 問 Gazebo（同導航冒煙測試）；地圖座標 = 世界座標，不用換算。
 
+### 3. 建置與 README（task 4.3）
+
+- `npm run build`：`tsc --noEmit` 型別檢查後由 Vite 打包到 `web/dist/`（JS 約 229 KB、gzip 72 KB）。後端的 `web_dir` 預設 `/web/dist`，有 `index.html` 就掛在 `/`。
+- README 新增「7. 網頁派車」：建置、啟動後端、操作順序（先設定初始位姿再派車）、截圖、參數與 `host` 的安全提醒、API 文件 `/docs`、開發模式與前端測試；架構圖加入 server 容器與瀏覽器、套件表加入 `amr_server` 與 `web/`、容器說明改成三個。
+- 架構圖（Mermaid）用瀏覽器載入 mermaid 實際渲染確認語法正確。
+- 截圖 `docs/images/05_web.png`：in-app 瀏覽器開 `http://localhost:8000/`（後端提供的建置版），導航中的畫面。
+
 ## 怎麼驗證（2026-10-08 實測）
 
 - `launch_test test/test_web_dispatch_smoke.py`：7 項 + 關閉檢查全部通過，約 62 秒。
 - 完整 `colcon test`（獨立 domain／partition）：**278 項全部通過**（含既有的建圖、導航冒煙測試）。
+- 建置版：`curl localhost:8000/` 回傳建置後的 `index.html`、`/api/robots` 仍是 JSON；瀏覽器開 8000 操作派車正常（見筆記 31 的流程）。
 
 ## 面試追問
 

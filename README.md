@@ -4,6 +4,7 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 
 - 子專案 1：模擬環境（完成）。設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-sim-environment/`](openspec/changes/archive/2026-10-08-add-sim-environment/)。
 - 子專案 2：建圖、定位、導航（完成）。設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-navigation/`](openspec/changes/archive/2026-10-08-add-navigation/)。
+- 子專案 3：網頁派車（2D，進行中）。設計與任務紀錄見 [`openspec/changes/add-web-dispatch/`](openspec/changes/add-web-dispatch/)。
 
 規格見 [`openspec/specs/`](openspec/specs/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
 
@@ -29,6 +30,12 @@ flowchart TB
     world["world.launch.xml"] --> gz["Gazebo 世界<br/>DiffDrive・gpu_lidar・IMU"]
   end
   hwsim <-- "cmd_vel ↓<br/>scan・odom・imu・TF・/clock ↑" --> gz
+  subgraph server["server 容器：中控（管理所有車輛）"]
+    backend["amr_server（FastAPI + rclpy）<br/>server.launch.xml"]
+  end
+  browser["瀏覽器：操作者網頁 web/<br/>地圖・即時位置・拖曳派車"]
+  browser <-- "REST（派車、取消、初始位姿）<br/>WebSocket（每 0.1 s 位置與狀態）" --> backend
+  backend <-- "/amr1/map・plan・TF ↑<br/>navigate_to_pose・initialpose ↓" --> nav
 ```
 
 | 套件 | 內容 | 真車需要 |
@@ -40,6 +47,8 @@ flowchart TB
 | `amr_navigation` | 建圖 `mapping.launch.xml`（含存圖服務）、導航 `navigation.launch.xml`、標地圖原點服務、參數、導航用 RViz 設定 | ✅ |
 | `amr_interfaces` | 自訂 ROS 介面（`SetMapOrigin.srv`） | ✅ |
 | `amr_rviz_plugins` | RViz「AMR 建圖」「AMR 地圖原點」面板、「設定原點」工具、`mapping_ui`／`map_origin_ui` launch | 操作員電腦 |
+| `amr_server` | 中控後端：HTTP／WebSocket 提供地圖、即時位置、派車，並提供網頁（`server.launch.xml`） | 中控電腦 |
+| `web/`（不是 ROS 套件） | 操作者網頁（React + Vite + TypeScript），只和後端溝通 | 中控電腦 |
 
 ## 準備
 
@@ -57,11 +66,11 @@ Ubuntu 22.04，docker：
 
 ```bash
 docker/amr_sim/build.sh          # 建置映像（自動帶入你的 UID/GID）
-docker/amr_sim/up.sh gpu all     # 背景啟動 sim、robot 兩個長駐容器（不會開任何視窗）
+docker/amr_sim/up.sh gpu all     # 背景啟動 sim、robot、server 三個長駐容器（不會開任何視窗）
 ```
 
-- `up.sh <gpu|cpu> <sim|robot|all> [compose 參數]`：兩個參數都必填；`cpu` 用軟體渲染；`sim`／`robot` 只啟動或重建那一個容器。修改 Dockerfile 後加 `--build`。
-- 進入容器：`docker/amr_sim/exec.sh sim`（世界）或 `docker/amr_sim/exec.sh robot`（車子系統），必須指定。以下每一步都註明在哪個容器執行；需要多個終端機時就多開幾個 `exec.sh`。
+- `up.sh <gpu|cpu> <sim|robot|server|all> [compose 參數]`：兩個參數都必填；`cpu` 用軟體渲染；`sim`／`robot`／`server` 只啟動或重建那一個容器（server 不用 GPU）。修改 Dockerfile 後加 `--build`。
+- 進入容器：`docker/amr_sim/exec.sh sim`（世界）、`exec.sh robot`（車子系統）或 `exec.sh server`（中控），必須指定。以下每一步都註明在哪個容器執行；需要多個終端機時就多開幾個 `exec.sh`。
 
 ---
 
@@ -267,4 +276,33 @@ RViz 操作順序：
 ```bash
 ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=navigation map:=warehouse_small
 ```
+
+### 7. 網頁派車
+
+世界與車子系統（含導航）都在執行。不用開 RViz：在瀏覽器上看地圖與車的即時位置，用和 RViz 一樣的拖曳手勢派車。
+
+**第一次（或修改前端後）建置網頁**（server 容器）：
+
+```bash
+cd /web && npm install && npm run build
+```
+
+**啟動後端**（server 容器）：
+
+```bash
+ros2 launch amr_server server.launch.xml use_sim_time:=true
+```
+
+瀏覽器開 **http://localhost:8000/**。
+
+1. 橫幅提示「車輛尚未定位」時：按 **「設定初始位姿」**，在車子實際的位置按下、往車頭方向拖曳後放開（同 RViz 的 2D Pose Estimate）。車出現在地圖上；Nav2 約數秒到半分鐘後啟動完成，橫幅消失。
+2. **派車**：在目標位置按下、往車頭方向拖曳後放開（只點一下＝維持目前朝向）。藍線是規劃的路徑，側欄顯示狀態與剩餘距離。
+3. 導航中可按 **「取消」**；到不了的目標會顯示「失敗」與原因。
+
+![網頁派車：地圖、車輛、規劃路徑與目標箭頭，側欄顯示導航狀態](docs/images/05_web.png)
+
+- 地圖取自車上導航正在用的那張（`/amr1/map`），座標就是 5.3 標好的倉庫座標；游標座標顯示在側欄。滾輪縮放、右鍵或中鍵拖曳平移、「整張地圖」恢復。
+- 後端參數：`robots:=amr1,amr2`（管理的車）、`port:=8000`、`host:=127.0.0.1`。**目前沒有登入驗證**：`host:=0.0.0.0` 會讓同網段任何人都能派車，只在信任的網路上這樣用。
+- API 文件（可以直接試）：http://localhost:8000/docs。
+- 開發前端：`cd /web && npm run dev`，開 http://localhost:5173（存檔即更新，`/api` 轉給 8000 的後端）。前端測試：`npm test`（不在 `colcon test` 裡）、型別檢查 `npm run typecheck`。
 ---
