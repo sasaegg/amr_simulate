@@ -24,7 +24,7 @@
 
 ### D1：新套件 `amr_navigation` 屬於車子系統
 
-`ament_python`（與其他套件一致；之後若有小工具也可放 Python）。內容：`launch/mapping.launch.xml`、`launch/navigation.launch.xml`、`config/slam_toolbox.yaml`、`config/nav2.yaml`、`config/navigate.rviz`。package.xml 只列 `slam_toolbox`、`nav2_*`、`launch_xml` 等，**不列任何 `ros_gz*`／`amr_hw_sim`／`amr_worlds`**，以測試檢查（同 `amr_bringup`）。
+`ament_python`（與其他套件一致；之後若有小工具也可放 Python）。內容：`launch/mapping.launch.xml`、`launch/navigation.launch.xml`、`config/mapping.yaml`、`config/nav2.yaml`、`config/navigate.rviz`。package.xml 只列 `slam_toolbox`、`nav2_*`、`launch_xml` 等，**不列任何 `ros_gz*`／`amr_hw_sim`／`amr_worlds`**，以測試檢查（同 `amr_bringup`）。
 
 替代：放進 `amr_bringup`——中控會變大，且 SLAM／Nav2 的參數與 launch 和「啟動驅動」是不同職責，分開較好維護與測試。
 

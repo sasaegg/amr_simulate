@@ -20,6 +20,7 @@ from launch import LaunchDescription  # noqa: E402
 from launch.actions import IncludeLaunchDescription, TimerAction  # noqa: E402
 from launch.launch_description_sources import AnyLaunchDescriptionSource  # noqa: E402
 import launch_testing.actions  # noqa: E402
+from nav2_msgs.srv import SaveMap  # noqa: E402
 from nav_msgs.msg import OccupancyGrid  # noqa: E402
 import rclpy  # noqa: E402
 from rclpy.qos import DurabilityPolicy, QoSProfile  # noqa: E402
@@ -68,6 +69,7 @@ class TestMappingSmoke(unittest.TestCase):
         cls.node.create_subscription(OccupancyGrid, f'/{ROBOT_ID}/map',
                                      lambda m: cls.latest.__setitem__('map', m), qos)
         cls.cmd = cls.node.create_publisher(Twist, f'/{ROBOT_ID}/cmd_vel', 10)
+        cls.save_map = cls.node.create_client(SaveMap, f'/{ROBOT_ID}/map_saver/save_map')
         cls.tf_buffer = Buffer()
         cls.tf_listener = TransformListener(cls.tf_buffer, cls.node)
 
@@ -158,6 +160,25 @@ class TestMappingSmoke(unittest.TestCase):
         self.assertEqual(meta['image'], 'smoke_map.pgm')
         self.assertAlmostEqual(meta['resolution'], 0.05, places=3)
 
+
+    def test_06_save_map_service(self):
+        # RViz 建圖面板的「存圖」按鈕呼叫的服務（nav2 map_saver_server）
+        self.assertTrue(self.save_map.wait_for_service(timeout_sec=20), 'save_map 服務不存在')
+        prefix = Path(tempfile.mkdtemp()) / 'service_map'
+        request = SaveMap.Request()
+        request.map_topic = f'/{ROBOT_ID}/map'
+        request.map_url = str(prefix)
+        request.image_format = 'pgm'
+        request.map_mode = 'trinary'
+        request.free_thresh = 0.25
+        request.occupied_thresh = 0.65
+        future = self.save_map.call_async(request)
+        self.assertTrue(self.spin_until(future.done, 15), 'save_map 15 s 內沒有回應')
+        self.assertTrue(future.result().result)
+        self.assertGreater(prefix.with_suffix('.pgm').stat().st_size, 1000)
+        meta = yaml.safe_load(prefix.with_suffix('.yaml').read_text())
+        self.assertEqual(meta['image'], 'service_map.pgm')
+        self.assertEqual(meta['mode'], 'trinary')
 
 @launch_testing.post_shutdown_test()
 class TestShutdown(unittest.TestCase):

@@ -1,6 +1,6 @@
 # 16 slam_toolbox 建圖
 
-檔案：[`slam_toolbox.yaml`](../../ros_ws/src/amr_navigation/config/slam_toolbox.yaml)、[`mapping.launch.xml`](../../ros_ws/src/amr_navigation/launch/mapping.launch.xml)、[`navigate.rviz`](../../ros_ws/src/amr_navigation/config/navigate.rviz)、[`test_mapping_smoke.py`](../../ros_ws/src/amr_hw_sim/test/test_mapping_smoke.py)
+檔案：[`mapping.yaml`](../../ros_ws/src/amr_navigation/config/mapping.yaml)（task 6.1 前叫 `slam_toolbox.yaml`）、[`mapping.launch.xml`](../../ros_ws/src/amr_navigation/launch/mapping.launch.xml)、[`navigate.rviz`](../../ros_ws/src/amr_navigation/config/navigate.rviz)、[`test_mapping_smoke.py`](../../ros_ws/src/amr_hw_sim/test/test_mapping_smoke.py)
 
 子專案 2 task 2.1、2.2、2.4、2.5。
 

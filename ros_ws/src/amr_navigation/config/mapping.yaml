@@ -1,5 +1,5 @@
-# slam_toolbox 非同步線上建圖（mapping.launch.xml 以 allow_substs 載入，$(var robot_id) 會被代換）
-# 起點：slam_toolbox 官方 config/mapper_params_online_async.yaml；只改本車相關的值，改過的都有註解。
+# 建圖參數（mapping.launch.xml 以 allow_substs 載入，$(var robot_id) 會被代換）
+# slam_toolbox 起點：官方 config/mapper_params_online_async.yaml；只改本車相關的值，改過的都有註解。
 # use_sim_time 不寫在這裡，由 launch 設定（避免兩處矛盾）。
 
 /$(var robot_id)/slam_toolbox:
@@ -69,3 +69,16 @@
     use_response_expansion: true
     min_pass_through: 2
     occupancy_threshold: 0.1
+
+# 存圖服務：Nav2 的 map_saver_server，提供 /<id>/map_saver/save_map（RViz 建圖面板按鈕呼叫它）
+/$(var robot_id)/map_saver:
+  ros__parameters:
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+    map_subscribe_transient_local: true          # 地圖是 Transient Local，訂閱前發過的最後一筆也收得到
+
+/$(var robot_id)/lifecycle_manager_mapping:
+  ros__parameters:
+    autostart: true
+    node_names: ["map_saver"]
