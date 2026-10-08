@@ -41,3 +41,26 @@
 #### Scenario: 模擬模式下建圖
 - **WHEN** 以 `hardware:=sim mode:=mapping` 啟動車子系統
 - **THEN** 建圖節點使用模擬時間，且 robot 側沒有啟動任何建圖專用的模擬節點
+
+### Requirement: 存圖服務
+建圖模式 SHALL 提供存圖服務 `/<id>/map_saver/save_map`：給定地圖 topic 與存放路徑，把目前的地圖存成 `.pgm` + `.yaml`，並回報成功或失敗。
+
+#### Scenario: 以服務存圖
+- **WHEN** 建圖中呼叫 `/amr1/map_saver/save_map`，地圖 topic 為 `/amr1/map`、路徑為 `/data/maps/test_map`
+- **THEN** 服務回報成功，主機的 `docker/amr_sim/data/maps/` 下出現 `test_map.pgm` 與 `test_map.yaml`
+
+### Requirement: 建圖面板
+RViz SHALL 提供建圖面板：可輸入車輛 id 與地圖名稱，按「存圖」時先顯示完整存放路徑並提醒同名檔案會被覆蓋，確認後呼叫存圖服務並顯示結果；面板 SHALL 顯示目前地圖的尺寸、已知區域比例與最後更新時間。面板的車輛 id 與地圖名稱 SHALL 隨 RViz 設定檔保存。
+
+#### Scenario: 按鈕存圖
+- **WHEN** 建圖中使用者在面板輸入地圖名稱 `warehouse_small` 並按「存圖」、在確認視窗按確定
+- **THEN** 面板顯示存圖成功與路徑 `/data/maps/warehouse_small`，主機上出現對應檔案
+
+#### Scenario: 取消存圖
+- **WHEN** 使用者按「存圖」後在確認視窗按取消
+- **THEN** 不呼叫存圖服務，既有檔案不變
+
+#### Scenario: 顯示建圖狀態
+- **WHEN** 建圖中車輛行駛到新區域
+- **THEN** 面板的地圖尺寸與已知比例隨之更新
+

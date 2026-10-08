@@ -34,9 +34,15 @@
 - [x] 5.1 （筆記 21）`robot.launch.xml` 新增 `mode`（`none`／`mapping`／`navigation`，預設 `none`）與 `map`，在 `is_sim` group 內依 mode include 對應 launch（傳 `robot_id`、`use_sim_time:=$(var is_sim)`、`map`）；`mode` 不合法時 `<log>` + `<shutdown>`；更新 `test_robot_launch.py`（`mode:=foo` 顯示訊息且不啟動節點）與 `test_package_boundary.py`（`amr_navigation` 不在 sim 判斷之外被視為模擬套件）。驗證：pytest 通過；`mode:=mapping`、`mode:=navigation` 一行啟動可建圖／導航；未指定 mode 時沒有 `map` 座標系；`mode:=none` 執行中另外啟動建圖、停止後再啟動導航，車輛留在原地未被移回出生點
 - [x] 5.2 （筆記 21）README 啟動流程與參數表加入 `mode`、`map`、`/data`；`docs/開發摘要.md` 更新子專案 2 狀態與套件配置。驗證：README 的指令都實際執行過；`colcon test` 全部通過
 
-## 6. 整體驗收
+## 6. 建圖面板（RViz 外掛）
 
-- [ ] 6.1 （筆記 22）使用者依手動驗收清單逐項確認：teleop 建圖時 RViz 看到地圖長出來、存圖並檢視 `.pgm`、`mode:=navigation` 載入地圖、2D Pose Estimate 後車輛位置正確、2D Goal Pose 開到目標、途中放箱子避障、牆內目標回報失敗、單獨切換建圖／導航時車輛留在原地；結果記錄於筆記 22，更新 `docs/開發摘要.md` 子專案 2 狀態
+- [ ] 6.1 （筆記 22）`mapping.launch.xml` 加入 Nav2 的 `map_saver_server`（節點 `map_saver`，namespace `<id>`）與 `lifecycle_manager_mapping`，提供 `/<id>/map_saver/save_map`（nav2_msgs/SaveMap）；pytest：lifecycle 管理完整、use_sim_time 以 ros_args 設定；建圖冒煙測試新增「呼叫 save_map 服務存到暫存目錄，產生 `.pgm`／`.yaml`」。驗證：pytest 與 `launch_test test/test_mapping_smoke.py` 通過；建圖中 `ros2 service call /amr1/map_saver/save_map ...` 存出檔案
+- [ ] 6.2 （筆記 22）新套件 `ros_ws/src/amr_rviz_plugins`（ament_cmake、C++、Qt5、pluginlib、rviz_common；不依賴模擬套件）：RViz 面板 `amr_rviz_plugins/MappingPanel`（車輛 id、地圖名稱輸入；「存圖」按鈕＋覆蓋確認視窗，呼叫 `/<id>/map_saver/save_map` 存到 `/data/maps/<名稱>`；狀態顯示地圖尺寸、已知比例、最後更新時間與存圖結果；車輛 id 與地圖名稱存進 RViz 設定檔）；`navigate.rviz` 加入面板；新增 `launch/mapping_ui.launch.xml`（建圖＋載入 navigate.rviz 的 RViz）；pytest：plugin 描述檔、套件邊界、設定檔含面板。驗證：`colcon build` 無警告、pytest 通過、RViz 以 offscreen 方式載入時外掛可被 pluginlib 找到；畫面與按鈕操作併入 7.1 由使用者確認
+- [ ] 6.3 （筆記 22）README「建圖與存圖」改為以 `mapping_ui.launch.xml` 與面板操作為主（指令存圖保留為替代方式）；更新開發摘要。驗證：照 README 執行 `mapping_ui.launch.xml` 啟動成功
+
+## 7. 整體驗收
+
+- [ ] 7.1 （筆記 23）使用者依手動驗收清單逐項確認：`mapping_ui.launch.xml` 開啟的 RViz 有建圖面板、teleop 建圖時地圖長出來、面板狀態更新、按「存圖」跳出確認後存檔並在 `docker/amr_sim/data/maps/` 看到檔案、`mode:=navigation` 載入地圖、2D Pose Estimate 後車輛位置正確、2D Goal Pose 開到目標、途中放箱子避障、障礙物內目標回報失敗、單獨切換建圖／導航時車輛留在原地；結果記錄於筆記 23，更新 `docs/開發摘要.md` 子專案 2 狀態
 
 ## Workflow follow-up
 

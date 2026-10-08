@@ -104,9 +104,20 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 - 冒煙測試可用不同 `ROS_DOMAIN_ID`／`IGN_PARTITION` 執行，避免與使用者開著的模擬互相干擾（子專案 1 筆記 14）。
 - 手動驗收（使用者）：teleop 建圖時 RViz 看地圖長出來、存圖並檢視 `.pgm`、導航點目標、途中放箱子避障、單獨切換建圖／導航時車留在原地。
 
+### D11：建圖面板（RViz 外掛）與存圖服務
+
+使用者要求建圖時有嵌入 RViz 的 GUI、以按鈕存圖（2026-10-08）。
+
+- **做成 RViz 面板外掛**，不另寫嵌入 RViz 的獨立視窗：地圖、光達、車身的 3D 顯示直接用 RViz；ROS 2 的 RViz 沒有 Python 綁定，獨立視窗要用 C++ 直接操作 rviz_common，複雜度高很多。面板以 pluginlib 註冊，可存進 `.rviz` 設定檔一開就有。
+- **新套件 `amr_rviz_plugins`**（ament_cmake、C++、Qt5）：操作員工具，不屬於車上執行的系統，也不依賴模擬套件。
+- **存圖用 Nav2 的 `map_saver_server`**（常駐、lifecycle node，提供 `save_map` 服務），放在 `mapping.launch.xml`、namespace `<id>` 下，由 `lifecycle_manager_mapping` 帶起。面板只呼叫服務、不直接寫檔：之後 RViz 開在操作員電腦、服務在車上時一樣能用。slam_toolbox 自帶的 RViz 面板寫死 `/slam_toolbox/save_map`、不支援 namespace，不能用。
+- 面板：車輛 id、地圖名稱、「存圖」按鈕（確認視窗顯示完整路徑並提醒同名會覆蓋）、狀態（地圖尺寸、已知比例、最後更新、存圖結果）。服務呼叫非同步，結果由 RViz 的執行緒回呼後更新畫面，不卡住 RViz。
+- `launch/mapping_ui.launch.xml`：建圖 + 以 `navigate.rviz` 開啟的 RViz（設定檔已含面板）。
+- 不做：用按鈕開始／停止建圖（需要另一個管理節點去啟動程序；使用者決定先不做）。
+
 ### D10：學習筆記
 
-每個實作步驟一篇，編號接續子專案 1（15 起），段落同前（為什麼／做了什麼／怎麼驗證／面試追問／踩坑紀錄）。預計：15 套件骨架、參數代換與執行資料目錄、16 slam_toolbox 建圖（含 RViz 設定檔與建圖冒煙測試）、17 存圖與地圖格式、18 AMCL 定位、19 Nav2 架構與 lifecycle、20 costmap 與 DWB（含導航冒煙測試）、21 中控模式整合、22 最終驗收。冒煙測試寫在各自功能的群組中，不集中在最後。
+每個實作步驟一篇，編號接續子專案 1（15 起），段落同前（為什麼／做了什麼／怎麼驗證／面試追問／踩坑紀錄）。預計：15 套件骨架、參數代換與執行資料目錄、16 slam_toolbox 建圖（含 RViz 設定檔與建圖冒煙測試）、17 存圖與地圖格式、18 AMCL 定位、19 Nav2 架構與 lifecycle、20 costmap 與 DWB（含導航冒煙測試）、21 中控模式整合、22 建圖面板（RViz 外掛）、23 最終驗收。冒煙測試寫在各自功能的群組中，不集中在最後。
 
 ## Risks / Trade-offs
 
