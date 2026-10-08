@@ -8,11 +8,13 @@
   <license>TODO: License declaration</license>
 
   <!-- 車子系統的建圖與導航：真車上也會安裝，只依賴 SLAM／Nav2，不依賴任何模擬套件 -->
+  <exec_depend>amr_interfaces</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>launch_xml</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
 
   <!-- 建圖 -->
   <exec_depend>slam_toolbox</exec_depend>

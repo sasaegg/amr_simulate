@@ -28,6 +28,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'map_origin_server = amr_navigation.map_origin_server:main',
         ],
     },
 )

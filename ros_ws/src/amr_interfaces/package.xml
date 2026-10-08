@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>amr_interfaces</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="ros@todo.todo">ros</maintainer>
+  <license>TODO: License declaration</license>
+
+  <!-- 專案自訂的 ROS 介面（msg／srv）。rosidl 在 build 時產生 C++ 與 Python 程式碼 -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

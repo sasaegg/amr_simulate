@@ -1,0 +1,10 @@
+# 標地圖原點：把地圖 <maps_dir>/<map_name>.{pgm,yaml} 的原點改到 (x, y, yaw)。
+# (x, y, yaw) 以「目前」的地圖座標表示：改寫後這個位置成為 (0, 0)、這個方向成為 +x。
+# 改寫前備份成 <map_name>.bak.*；失敗時原檔不變。
+string map_name     # 只能英數字、底線、連字號
+float64 x           # 公尺
+float64 y           # 公尺
+float64 yaw         # 弧度；90° 倍數時無損旋轉，其他角度重新取樣
+---
+bool success
+string message      # 成功：新原點與圖片尺寸；失敗：原因
