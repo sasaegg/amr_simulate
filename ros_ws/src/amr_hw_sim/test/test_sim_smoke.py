@@ -182,6 +182,36 @@ class TestSimSmoke(unittest.TestCase):
         resumed = self.latest['clock'].clock
         self.assertNotEqual((resumed.sec, resumed.nanosec), (after.sec, after.nanosec))
 
+    def test_10_odom_heading_matches_ground_truth(self):
+        # 原地旋轉時 odom 的角度變化要和 Gazebo 真實值一致。輪子碰撞形狀若用圓柱，
+        # 接觸點落在輪緣、有效輪距變小，實際多轉約 10%，SLAM 地圖會扭曲（筆記 17）
+        def true_yaw():
+            out = subprocess.run(['ign', 'model', '-m', ROBOT_ID, '-p'],
+                                 capture_output=True, text=True, check=True).stdout
+            return float(out.strip().splitlines()[-1].strip(' []').split()[2])
+
+        def odom_yaw():
+            q = self.latest['odom'].pose.pose.orientation
+            return 2 * math.atan2(q.z, q.w)
+
+        def wrap(a):
+            return math.atan2(math.sin(a), math.cos(a))
+
+        self.spin_for(1.0)
+        truth0, odom0 = true_yaw(), odom_yaw()
+        msg = Twist()
+        msg.angular.z = 0.6
+        end = time.monotonic() + 3.0
+        while time.monotonic() < end:
+            self.cmd.publish(msg)
+            self.spin_for(0.1)
+        self.cmd.publish(Twist())
+        self.spin_for(1.5)
+        turned_truth = wrap(true_yaw() - truth0)
+        turned_odom = wrap(odom_yaw() - odom0)
+        self.assertGreater(abs(turned_truth), 1.0)
+        self.assertAlmostEqual(turned_odom, turned_truth, delta=math.radians(2))
+
 
 @launch_testing.post_shutdown_test()
 class TestShutdown(unittest.TestCase):

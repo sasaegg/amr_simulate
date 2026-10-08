@@ -83,6 +83,17 @@ def test_wheels_rotate_about_y(robot):
         assert floats(axis) == pytest.approx([0, 1, 0])
 
 
+def test_wheel_collision_is_sphere(robot):
+    # 圓柱與地面的接觸點會落在輪緣，有效輪距變成內緣距離（實測原地旋轉多轉約 10%，odom 漂移）；
+    # 球只有一個接觸點且在輪子中心平面上，有效輪距才等於 wheel_separation。外觀仍是圓柱
+    for side in ('left', 'right'):
+        link = robot.find(f"link[@name='{side}_wheel_link']")
+        sphere = link.find('collision/geometry/sphere')
+        assert sphere is not None, f'{side} 輪的碰撞形狀不是球'
+        cylinder = link.find('visual/geometry/cylinder')
+        assert float(sphere.get('radius')) == pytest.approx(float(cylinder.get('radius')))
+
+
 def test_wheels_are_symmetric(robot):
     left = joint_xyz(robot, 'left_wheel_joint')
     right = joint_xyz(robot, 'right_wheel_joint')

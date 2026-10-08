@@ -122,9 +122,10 @@
         <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
         <material name="wheel_black"><color rgba="0.1 0.1 0.1 1"/></material>
       </visual>
+      <!-- 碰撞用球：圓柱與地面的接觸點會落在輪緣，有效輪距變成內緣距離 0.40 m（參數 0.44），
+           實測原地旋轉多轉約 10%、odom 漂移，SLAM 建出的地圖扭曲。球只有一個接觸點且在輪子中心平面上 -->
       <collision>
-        <origin xyz="0 0 0" rpy="${pi / 2} 0 0"/>
-        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <geometry><sphere radius="${wheel_radius}"/></geometry>
       </collision>
       <xacro:wheel_inertial m="${wheel_mass}" r="${wheel_radius}" h="${wheel_width}"/>
     </link>
