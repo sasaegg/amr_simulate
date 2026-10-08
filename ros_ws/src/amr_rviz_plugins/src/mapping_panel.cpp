@@ -75,7 +75,8 @@ void MappingPanel::load(const rviz_common::Config & config)
   if (config.mapGetString("map_name", &value)) {
     map_name_edit_->setText(value);
   }
-  if (node_) {
+  // RViz 先呼叫 onInitialize() 再 load()：車輛 id 沒變就不要重建訂閱與客戶端
+  if (node_ && robot_id_edit_->text().trimmed().toStdString() != robot_id_) {
     connectToRobot();
   }
 }

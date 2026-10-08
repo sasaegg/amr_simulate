@@ -10,13 +10,19 @@
   <!-- 操作員工具：RViz 面板外掛。不依賴任何模擬套件 -->
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>amr_interfaces</depend>
+  <depend>geometry_msgs</depend>
   <depend>nav2_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>pluginlib</depend>
+  <depend>rcl_interfaces</depend>
   <depend>rclcpp</depend>
   <depend>rviz_common</depend>
+  <depend>rviz_default_plugins</depend>
   <build_depend>qtbase5-dev</build_depend>
   <exec_depend>amr_navigation</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
   <exec_depend>launch_xml</exec_depend>
   <exec_depend>libqt5-widgets</exec_depend>
   <exec_depend>rviz2</exec_depend>

@@ -74,3 +74,35 @@ def test_mapping_ui_launch_opens_rviz_with_panel_config():
     assert len(rviz) == 1
     assert rviz[0].get('args') == '-d $(find-pkg-share amr_rviz_plugins)/config/mapping.rviz'
     assert rviz[0].get('ros_args') == '-p use_sim_time:=$(var use_sim_time)'
+
+
+def test_map_origin_rviz_uses_namespaced_topics_and_tool():
+    config = rviz_config(PACKAGE_DIR / 'config' / 'map_origin.rviz')
+    vm = config['Visualization Manager']
+    assert [p for p in config['Panels'] if p['Class'] == 'amr_rviz_plugins/MapOriginPanel']
+    tools = [t for t in vm['Tools'] if t['Class'] == 'amr_rviz_plugins/SetOriginTool']
+    assert len(tools) == 1 and tools[0]['Topic']['Value'] == '/amr1/map_origin/candidate'
+    # 不應出現會被誤認為導航目標的工具
+    assert not [t for t in vm['Tools'] if t['Class'] in ('rviz_default_plugins/SetGoal',
+                                                         'rviz_default_plugins/SetInitialPose')]
+    topics = {d['Name']: d['Topic']['Value'] for d in vm['Displays'] if 'Topic' in d}
+    assert topics == {'Map': '/amr1/map_origin/map', '新原點': '/amr1/map_origin/candidate'}
+
+
+def test_map_origin_ui_launch():
+    root = ET.parse(PACKAGE_DIR / 'launch' / 'map_origin_ui.launch.xml').getroot()
+    args = {a.get('name'): a for a in root.iter('arg')}
+    assert args['map'].get('default') is None                    # 必填：不會改到預設地圖
+    nodes = {n.get('name'): n for n in root.iter('node')}
+    viewer = {p.get('name'): p.get('value') for p in nodes['map_origin_viewer'].iter('param')}
+    assert viewer['yaml_filename'] == '/data/maps/$(var map).yaml'
+    assert viewer['topic_name'] == 'map_origin/map'               # 和導航用的 map 分開
+    assert nodes['map_origin_server'].get('pkg') == 'amr_navigation'
+    assert nodes['rviz_map_origin'].get('args') == '-d $(find-pkg-share amr_rviz_plugins)/config/map_origin.rviz'
+
+
+def test_map_origin_panel_targets_viewer_and_service():
+    source = (PACKAGE_DIR / 'src' / 'map_origin_panel.cpp').read_text(encoding='utf-8')
+    for name in ('"/map_origin/set"', '"/map_origin/candidate"', '"/map_origin_viewer/load_map"',
+                 '"/map_origin_viewer/get_parameters"'):
+        assert name in source, name

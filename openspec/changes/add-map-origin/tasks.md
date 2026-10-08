@@ -9,7 +9,7 @@
 
 ## 2. 地圖原點 UI
 
-- [ ] 2.1 （筆記 25）`amr_rviz_plugins`：`MapOriginPanel`、`config/map_origin.rviz`、`launch/map_origin_ui.launch.xml`（D3）；gtest（pluginlib 載入、對齊角度）、pytest（設定檔 topic 帶 namespace、launch 內容）。驗證：`colcon build` 無警告、測試通過；以乾淨映像在 Xvfb 啟動 UI、xdotool 點選拖曳並套用到複製的地圖，截圖確認座標軸移到新原點、檔案與備份正確
+- [x] 2.1 （筆記 25）`amr_rviz_plugins`：`MapOriginPanel`、`config/map_origin.rviz`、`launch/map_origin_ui.launch.xml`（D3）；gtest（pluginlib 載入、對齊角度）、pytest（設定檔 topic 帶 namespace、launch 內容）。驗證：`colcon build` 無警告、測試通過；以乾淨映像在 Xvfb 啟動 UI、xdotool 點選拖曳並套用到複製的地圖，截圖確認座標軸移到新原點、檔案與備份正確
 
 ## 3. repo 地圖與既有流程
 

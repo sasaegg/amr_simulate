@@ -36,7 +36,9 @@
 | `map_origin.rviz` | `amr_rviz_plugins` | Map（`/<id>/map_origin/map`）、Grid、Axes（原點）、Pose（候選箭頭）；工具：Move Camera、**設定原點**＝ SetGoal 改 topic 為 `/<id>/map_origin/candidate` |
 | `map_origin_ui.launch.xml` | `amr_rviz_plugins` | 參數 `robot_id`、`map`；啟動 map_server（節點 `map_origin_viewer`、namespace `<id>`、topic `map_origin/map`、載入 `/data/maps/<map>.yaml`）＋ lifecycle_manager、`map_origin_server`、RViz |
 
-- 「設定原點」工具重用 RViz 內建 SetGoal（只改 topic），不另寫工具外掛。
+- 「設定原點」工具：繼承 RViz 內建的 GoalTool（2D Goal Pose），只改名稱為「設定原點」、topic 由設定檔指定——避免在這個畫面看到「2D Goal Pose」而誤以為是導航目標。
+- 面板從 `/<id>/map_origin_viewer/get_parameters` 讀 `yaml_filename` 得知要改的地圖（不讓使用者手打名稱）；套用成功後呼叫 `load_map` 重新載入，並發布 (0, 0, 0) 到 candidate，讓預覽座標軸移到新原點（否則會留在舊座標的位置）。
+- RViz 先呼叫面板的 `onInitialize()` 再 `load()`：`load()` 只在車輛 id 改變時才重建連線——重建會丟掉進行中的服務請求、回呼不執行（task 2.1 實測：忙碌狀態卡住、按鈕永遠是灰的；建圖面板一併修正）。
 - 顯示用的 map_server 用獨立的節點名稱與 topic（`map_origin_viewer`、`map_origin/map`），和導航的 map_server（`/amr1/map`）不衝突；不需要世界與車子系統。
 - 服務在車上、面板只呼叫服務（同 add-navigation D11）。
 
