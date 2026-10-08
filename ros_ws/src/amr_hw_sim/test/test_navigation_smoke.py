@@ -1,7 +1,8 @@
 """導航冒煙測試：headless 世界 + 車子系統（hardware=sim，出生點 (1, 1)）+ 另外啟動 navigation.launch.xml。
 
 驗證 spec navigation：載入地圖、給初始位姿後定位、導航到目標（速度上限、到達誤差）、目標不可達時回報失敗。
-地圖預設 warehouse_small（repo 內的地圖，從出生點開始建：世界座標 = 地圖座標 + (1, 1)，design D4）；
+地圖預設 warehouse_small（repo 內的地圖，原點已標在倉庫左下角：地圖座標 = Gazebo 世界座標，
+change add-map-origin D5）；
 開發時可用環境變數 NAV_SMOKE_MAP 換成別的地圖。方法依名稱排序執行。沒有 ROS 環境時整個檔案略過。
 """
 
@@ -35,9 +36,10 @@ from tf2_ros import Buffer, TransformListener  # noqa: E402
 ROBOT_ID = 'amr1'
 WORLD = 'warehouse_small'
 MAP = os.environ.get('NAV_SMOKE_MAP', 'warehouse_small')
-SPAWN = (1.0, 1.0)                 # 世界座標；地圖從這裡開始建，所以這裡是地圖原點
-REACHABLE_GOAL = (9.0, 0.0)        # 地圖座標 = 世界 (10, 1)：沿南牆的開闊通道
-GOAL_IN_OBSTACLE = (6.0, 3.0)      # 地圖座標 = 世界 (7, 4)：場景中 1 × 1 m 箱子的中心
+# 以下都是世界座標，也就是地圖座標（地圖原點標在倉庫左下角）
+SPAWN = (1.0, 1.0)                 # 出生點
+REACHABLE_GOAL = (10.0, 1.0)       # 沿南牆的開闊通道
+GOAL_IN_OBSTACLE = (7.0, 4.0)      # 場景中 1 × 1 m 箱子的中心
 NAV_NODES = ('map_server', 'amcl', 'controller_server', 'smoother_server', 'planner_server',
              'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother')
 
@@ -65,13 +67,13 @@ def generate_test_description():
 
 
 def true_pose_in_map():
-    """Gazebo 真實位姿換算成地圖座標 (x, y, yaw)。"""
+    """Gazebo 真實位姿 (x, y, yaw)；地圖座標 = 世界座標，不需換算。"""
     out = subprocess.run(['ign', 'model', '-m', ROBOT_ID, '-p'],
                          capture_output=True, text=True, check=True).stdout
     lines = [ln.strip(' []') for ln in out.strip().splitlines()]
     x, y, _ = map(float, lines[-2].split())
     yaw = float(lines[-1].split()[2])
-    return x - SPAWN[0], y - SPAWN[1], yaw
+    return x, y, yaw
 
 
 class TestNavigationSmoke(unittest.TestCase):
@@ -163,7 +165,8 @@ class TestNavigationSmoke(unittest.TestCase):
         msg = PoseWithCovarianceStamped()
         msg.header.frame_id = 'map'
         msg.header.stamp = self.node.get_clock().now().to_msg()
-        msg.pose.pose.orientation.w = 1.0              # 車在出生點 = 地圖原點，朝 +x
+        msg.pose.pose.position.x, msg.pose.pose.position.y = SPAWN   # 車在出生點，朝 +x
+        msg.pose.pose.orientation.w = 1.0
         msg.pose.covariance[0] = msg.pose.covariance[7] = 0.25
         msg.pose.covariance[35] = 0.0685
         self.initial_pose.publish(msg)
