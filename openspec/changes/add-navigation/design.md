@@ -62,7 +62,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 | 定位 | `map_server` | `yaml_filename: /data/maps/$(var map).yaml` |
 | | `amcl` | 差速模型 `nav2_amcl::DifferentialMotionModel`；`global_frame_id: map`、`odom_frame_id`、`base_frame_id` 帶前綴；`scan_topic: /<id>/scan`；`set_initial_pose: false`（初始位姿由使用者給定） |
 | | `lifecycle_manager_localization` | `node_names: [map_server, amcl]`、`autostart: true` |
-| 導航 | `planner_server` | NavFn（`use_astar: false`，Dijkstra） |
+| 導航 | `planner_server` | NavFn（`use_astar: false`，Dijkstra）；**`tolerance: 0.0`**（官方 0.5 會把障礙物內的目標換成 0.5 m 內的替代點，到了就回報成功——task 4.2 實測目標在牆內卻停在 0.59 m 外並回報 SUCCEEDED，違反 spec） |
 | | `controller_server` | DWB（`FollowPath`），輸出 remap `cmd_vel → cmd_vel_nav` |
 | | `smoother_server` | 預設 SimpleSmoother（bt 預設樹會呼叫） |
 | | `behavior_server` | spin、backup、wait |
