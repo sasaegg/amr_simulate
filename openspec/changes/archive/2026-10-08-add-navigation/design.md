@@ -49,7 +49,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 
 - `async_slam_toolbox_node`（`sync` 版本在跟不上時會累積延遲；官方建議線上建圖用 async）。namespace `<id>`；`scan_topic: /<id>/scan`、`map_frame: map`、`odom_frame: <id>/odom`、`base_frame: <id>/base_footprint`、`resolution: 0.05`、`max_laser_range: 12.0`（與 xacro 一致）、`mode: mapping`。
 - 發布 `/<id>/map` 與 TF `map → <id>/odom`。slam_toolbox 的 `map_name` 預設是絕對名稱 `/map`，namespace 不會作用，所以參數檔明確設為 `/$(var robot_id)/map`。slam_toolbox 2.6（Humble）是一般節點，不是 lifecycle node。
-- **`map` 座標系的原點是開始建圖時車輛的位置，不是 Gazebo 世界原點**（task 2.1 實測：車在世界 (1, 1) 開始建圖，`map → amr1/base_footprint` 為 (0, 0)）。慣例：repo 內的地圖一律從出生點 `x:=1 y:=1 yaw:=0` 開始建，所以世界座標 = 地圖座標 + (1, 1)；導航時的初始位姿與目標點都用地圖座標（車在出生點時初始位姿為 (0, 0, 0)），冒煙測試比對真實位置時做這個換算。
+- **`map` 座標系的原點是開始建圖時車輛的位置，不是 Gazebo 世界原點**（task 2.1 實測：車在世界 (1, 1) 開始建圖，`map → amr1/base_footprint` 為 (0, 0)）。慣例：repo 內的地圖一律從出生點 `x:=1 y:=1 yaw:=0` 開始建，所以世界座標 = 地圖座標 + (1, 1)；導航時的初始位姿與目標點都用地圖座標（車在出生點時初始位姿為 (0, 0, 0)），冒煙測試比對真實位置時做這個換算。（後續 change `add-map-origin` 取消此慣例：掃完後手動標原點，repo 地圖的原點改到倉庫左下角。）
 - **車輛模型修正（2026-10-08 開發中發現）**：驅動輪碰撞形狀原為圓柱，與地面的接觸點落在輪緣，有效輪距變成內緣距離（約 0.40 m，參數 0.44），原地旋轉實際多轉約 10%，odom 航向持續漂移，slam_toolbox 建出的地圖疊成多份。改為球形碰撞（外觀仍是圓柱）後，直線、原地旋轉、各種半徑的弧線 odom 與 Gazebo 真實位姿一致；`amr_description` 加測試、`test_sim_smoke` 加 odom 航向對真實值的回歸測試（以圓柱對照時失敗）。
 - 存圖：Nav2 的 `map_saver_cli`（不另寫程式），README 指令 `ros2 run nav2_map_server map_saver_cli -f /data/maps/<name> --ros-args -r map:=/<id>/map -p use_sim_time:=true`；輸出 `<name>.pgm` + `<name>.yaml`（trinary 模式、佔據門檻 0.65／空曠 0.25）。
 - 替代：slam_toolbox 的 serialize（`.posegraph`／`.data`）——網頁讀不懂，且導航改用 AMCL，不需要。
