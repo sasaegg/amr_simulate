@@ -101,5 +101,7 @@ A：後端管理多台車（派車、之後的任務佇列），是車隊層級�
 
 ## 踩坑紀錄
 
+- **anyio 的 pytest 外掛弄壞 apt 的 pytest**：見筆記 27 踩坑紀錄；Dockerfile 加 `ENV PYTEST_ADDOPTS="-p no:anyio"`。
+
 - **映像沒有 pip**：`osrf/ros:humble-desktop` 不含 `python3-pip`，要在 apt 清單補上。
 - **websockets 最新版不支援 Python 3.10**：PyPI 的 17.x 要求 `>=3.11`；選版本時要看 `requires_python`，不能只看最新。

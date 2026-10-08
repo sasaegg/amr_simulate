@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>amr_server</name>
+  <version>0.0.0</version>
+  <description>中控後端：以 HTTP／WebSocket 提供車輛地圖、即時位置與派車</description>
+  <maintainer email="ros@todo.todo">ros</maintainer>
+  <license>TODO: License declaration</license>
+
+  <!-- 中控（server 容器）：只用車子系統的標準介面（topic、TF、action），不依賴任何模擬套件。
+       FastAPI、uvicorn、websockets 由映像的 pip 安裝（rosdep 沒有對應的鍵，見 Dockerfile） -->
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>launch_xml</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-pil</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
