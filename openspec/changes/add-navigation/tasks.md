@@ -44,7 +44,7 @@
 
 ## 7. 整體驗收
 
-- [ ] 7.1 （筆記 23）使用者依手動驗收清單逐項確認：`mapping_ui.launch.xml` 開啟的 RViz 有建圖面板、teleop 建圖時地圖長出來、面板狀態更新、按「存圖」跳出確認後存檔並在 `docker/amr_sim/data/maps/` 看到檔案、`mode:=navigation` 載入地圖、2D Pose Estimate 後車輛位置正確、2D Goal Pose 開到目標、途中放箱子避障、障礙物內目標回報失敗、單獨切換建圖／導航時車輛留在原地；結果記錄於筆記 23，更新 `docs/開發摘要.md` 子專案 2 狀態
+- [x] 7.1 （筆記 23）使用者依手動驗收清單逐項確認：`mapping_ui.launch.xml` 開啟的 RViz 有建圖面板、teleop 建圖時地圖長出來、面板狀態更新、按「存圖」跳出確認後存檔並在 `docker/amr_sim/data/maps/` 看到檔案、`mode:=navigation` 載入地圖、2D Pose Estimate 後車輛位置正確、2D Goal Pose 開到目標、途中放箱子避障、障礙物內目標回報失敗、單獨切換建圖／導航時車輛留在原地；結果記錄於筆記 23，更新 `docs/開發摘要.md` 子專案 2 狀態
 
 ## Workflow follow-up
 
