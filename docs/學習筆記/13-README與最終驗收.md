@@ -1,5 +1,7 @@
 # 13 README 與最終驗收
 
+> **2026-10-08 更新**：`up_gpu.sh`／`up_cpu.sh` 已合併為 `up.sh <gpu|cpu> <sim|robot|all>`（見[筆記 24](24-啟動腳本合併.md)）。本篇保留當時的寫法。
+
 檔案：[`README.md`](../../README.md)、[`docs/開發摘要.md`](../開發摘要.md)
 
 ## 為什麼要做

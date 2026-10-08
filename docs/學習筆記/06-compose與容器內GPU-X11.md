@@ -1,5 +1,7 @@
 # 06 compose：容器內的 GPU 與 X11
 
+> **2026-10-08 更新**：`up_gpu.sh`／`up_cpu.sh` 已合併為 `up.sh <gpu|cpu> <sim|robot|all>`（見[筆記 24](24-啟動腳本合併.md)）。本篇保留當時的寫法。
+
 檔案：[`docker/amr_sim/compose.yaml`](../../docker/amr_sim/compose.yaml)、[`build.sh`](../../docker/amr_sim/build.sh)、[`up_gpu.sh`](../../docker/amr_sim/up_gpu.sh)、[`up_cpu.sh`](../../docker/amr_sim/up_cpu.sh)、[`exec.sh`](../../docker/amr_sim/exec.sh)、[`config/ros.env`](../../docker/amr_sim/config/ros.env)
 
 ## 為什麼要做

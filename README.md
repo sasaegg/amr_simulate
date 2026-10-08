@@ -47,7 +47,7 @@ Ubuntu 22.04，依學習筆記操作（需要 sudo 的步驟由你自己執行�
 
 ```bash
 docker/amr_sim/build.sh          # 建置映像（自動帶入你的 UID/GID）
-docker/amr_sim/up_gpu.sh         # 背景啟動 sim、robot 兩個長駐容器（不會開任何視窗）
+docker/amr_sim/up.sh gpu all     # 背景啟動 sim、robot 兩個長駐容器（不會開任何視窗）
 ```
 
 開兩個終端機：
@@ -76,7 +76,8 @@ ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=navigatio
 - 容器啟動時若工作區還沒建置過（沒有 `ros_ws/install`），entrypoint 會自動 `colcon build`；之後修改 Python／launch／YAML 不需要重新 build，**新增檔案**（新的套件、場景、world）才要在容器內 `cd /ros_ws && colcon build --symlink-install`。
 - 停止：各自在 launch 的終端機按 Ctrl+C（或直接關掉 Gazebo 視窗，世界的 launch 會跟著結束）。停止車子系統時車輛會停下並留在世界中；再次啟動會移回出生點。
 - 收工：`cd docker/amr_sim && docker compose down`。
-- 修改 Dockerfile 後：`docker/amr_sim/up_gpu.sh --build`。
+- 修改 Dockerfile 後：`docker/amr_sim/up.sh gpu all --build`。
+- `up.sh <gpu|cpu> <sim|robot|all>`：兩個參數都必填；`sim`／`robot` 只啟動或重建那一個容器（另一個不受影響），其餘參數交給 `docker compose up`。
 - `exec.sh` 必須指定 `sim` 或 `robot`。
 
 ### UID 不是 1000 的主機
@@ -109,7 +110,7 @@ ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=3 y:=1 yaw:=1.57
 ros2 launch amr_bringup robot.launch.xml --show-args     # 列出所有參數與說明
 ```
 
-兩個容器共用的 ROS 環境變數在 `docker/amr_sim/config/ros.env`：`ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up_gpu.sh` 重建容器）。
+兩個容器共用的 ROS 環境變數在 `docker/amr_sim/config/ros.env`：`ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up.sh gpu all` 重建容器）。
 
 執行時產生的資料（地圖）在專案的 `docker/amr_sim/data/`，掛載到 robot 容器的 `/data`（可寫，檔案在主機上屬於你）；`docker/amr_sim/data/maps/` 納入 git。
 
@@ -207,8 +208,9 @@ RViz 操作順序：
 ## 沒有 NVIDIA GPU：軟體渲染
 
 ```bash
-docker/amr_sim/up_cpu.sh         # 兩個容器改用 llvmpipe（CPU 繪圖）
-docker/amr_sim/up_gpu.sh         # 切回 GPU
+docker/amr_sim/up.sh cpu all     # 兩個容器改用 llvmpipe（CPU 繪圖）
+docker/amr_sim/up.sh gpu all     # 切回 GPU
+docker/amr_sim/up.sh cpu robot   # 只有 robot 用 CPU（排查繪圖問題時；sim 不受影響）
 ```
 
 ## 測試
@@ -239,7 +241,7 @@ cd /ros_ws/src/amr_worlds && env -i PATH=/usr/bin:/bin python3 -m pytest -q test
 | build 報 `can't copy ... doesn't exist` | 刪除原始檔後 `build/` 留下斷掉的 symlink：刪除該套件的 `ros_ws/build/<套件>`、`ros_ws/install/<套件>` 後重建 |
 | 導航啟動後沒反應、`ros2 lifecycle get` 卡住 | 還沒給初始位姿：planner 在等 `map` 座標系，先在 RViz 點 2D Pose Estimate |
 | RViz 點 2D Pose Estimate／2D Goal Pose 沒反應 | 工具的 topic 沒帶 namespace；用 `config/navigate.rviz`（`/amr1/initialpose`、`/amr1/goal_pose`） |
-| `Failed to load map yaml file: /data/maps/xxx.yaml` | 地圖名稱打錯，或 robot 容器沒有 `/data` 掛載（`up_gpu.sh` 重建容器） |
+| `Failed to load map yaml file: /data/maps/xxx.yaml` | 地圖名稱打錯，或 robot 容器沒有 `/data` 掛載（`up.sh gpu all` 重建容器） |
 | `Lookup would require extrapolation`、costmap 一直等 TF | 有節點沒用模擬時間：單獨啟動導航／建圖時要加 `use_sim_time:=true` |
 | 目標點在牆邊回報失敗 | 目標落在障礙物或膨脹範圍（車寬一半）內；點遠一點。刻意不改去附近的替代點（避免停在錯的位置卻回報成功） |
 | 外接螢幕接在 NVIDIA、Wayland 黑畫面 | `/etc/gdm3/custom.conf` 設 `WaylandEnable=false` 改用 Xorg（筆記 02） |
