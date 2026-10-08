@@ -1,0 +1,21 @@
+<!--
+  建圖：slam_toolbox 非同步線上建圖。依 /ID/scan、/ID/odom 與 TF 建 2D 佔據格地圖，
+  發布 /ID/map 與 TF map → ID/odom。只用車輛標準介面，模擬與真車相同。
+
+  用法（robot 容器內，車子系統已在執行）：
+    ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true
+  也可由中控一起帶起：robot.launch.xml hardware:=sim mode:=mapping
+
+  存圖：ros2 run nav2_map_server map_saver_cli -f /data/maps/NAME ...（見 README）
+-->
+<launch>
+  <arg name="robot_id" default="amr1" description="車輛 id（namespace 與 frame 前綴）"/>
+  <arg name="use_sim_time" default="false" description="模擬時為 true（由中控帶起時自動設定）"/>
+
+  <!-- async：跟不上時跳過部分 scan，不累積延遲；官方建議線上建圖用這個 -->
+  <node pkg="slam_toolbox" exec="async_slam_toolbox_node" name="slam_toolbox"
+        namespace="$(var robot_id)" output="screen">
+    <param from="$(find-pkg-share amr_navigation)/config/slam_toolbox.yaml" allow_substs="true"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+</launch>
