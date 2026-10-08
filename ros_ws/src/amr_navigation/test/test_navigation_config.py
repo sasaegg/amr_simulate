@@ -32,10 +32,11 @@ def test_every_launch_node_has_parameters():
         assert f'/amr1/{name}' in nav2(), name
 
 
-def test_every_node_sets_use_sim_time_from_launch():
+def test_every_node_sets_use_sim_time_for_whole_process():
+    # 用 ros_args（程序層級）而不是 <param>（只套主節點）：costmap 子節點、bt_navigator 內部節點也要用模擬時間
     for name, node in launch_nodes().items():
-        names = [p.get('name') for p in node.iter('param')]
-        assert 'use_sim_time' in names, name
+        assert node.get('ros_args') == '-p use_sim_time:=$(var use_sim_time)', name
+        assert 'use_sim_time' not in [p.get('name') for p in node.iter('param')], name
     for key, values in nav2().items():
         assert 'use_sim_time' not in values, key
 

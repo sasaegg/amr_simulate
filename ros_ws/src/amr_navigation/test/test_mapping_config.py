@@ -48,11 +48,10 @@ def test_mapping_mode_and_resolution():
 
 
 def test_use_sim_time_comes_from_launch():
-    # use_sim_time 只由 launch 設定，參數檔不寫，避免兩處矛盾
+    # use_sim_time 只由 launch 以 ros_args 設定（程序層級），參數檔不寫，避免兩處矛盾
     assert 'use_sim_time' not in slam()
     node = ET.parse(LAUNCH_FILE).getroot().find('node')
-    names = [p.get('name') for p in node.iter('param')]
-    assert 'use_sim_time' in names
+    assert node.get('ros_args') == '-p use_sim_time:=$(var use_sim_time)'
 
 
 def test_params_loaded_with_substitution():

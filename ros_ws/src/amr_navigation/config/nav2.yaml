@@ -65,3 +65,268 @@
   ros__parameters:
     autostart: true
     node_names: ["map_server", "amcl"]
+
+# ======================= 導航 =======================
+
+/$(var robot_id)/planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5                              # 目標點被佔據時，可在 0.5 m 內找替代點
+      use_astar: false                            # Dijkstra（官方預設）；A* 較快但路徑品質略差
+      allow_unknown: true
+
+/$(var robot_id)/smoother_server:
+  ros__parameters:
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: true
+
+/$(var robot_id)/behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw      # 相對名稱 → /<id>/local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors/AssistedTeleop"
+    global_frame: $(var robot_id)/odom
+    robot_base_frame: $(var robot_id)/base_footprint
+    transform_tolerance: 0.1
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 3.2
+
+/$(var robot_id)/bt_navigator:
+  ros__parameters:
+    global_frame: map
+    robot_base_frame: $(var robot_id)/base_footprint
+    odom_topic: /$(var robot_id)/odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    # 行為樹用 Humble 預設：navigate_to_pose_w_replanning_and_recovery.xml（每秒重新規劃、失敗時脫困）
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_smooth_path_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_assisted_teleop_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_drive_on_heading_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_truncate_path_local_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_path_expiring_timer_condition
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_goal_updated_controller_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
+      - nav2_wait_cancel_bt_node
+      - nav2_spin_cancel_bt_node
+      - nav2_back_up_cancel_bt_node
+      - nav2_assisted_teleop_cancel_bt_node
+      - nav2_drive_on_heading_cancel_bt_node
+      - nav2_is_battery_charging_condition_bt_node
+
+/$(var robot_id)/waypoint_follower:
+  ros__parameters:
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: true
+      waypoint_pause_duration: 200
+
+# velocity_smoother：controller 的 cmd_vel_nav → 限制速度與加速度 → cmd_vel（/<id>/cmd_vel）
+/$(var robot_id)/velocity_smoother:
+  ros__parameters:
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.5, 0.0, 1.0]                 # 導航上限 0.5 m/s、1.0 rad/s（硬體 1.0、1.5）
+    min_velocity: [-0.5, 0.0, -1.0]
+    max_accel: [2.5, 0.0, 3.2]                    # 不超過硬體 2.5 m/s²、5.0 rad/s²
+    max_decel: [-2.5, 0.0, -3.2]
+    odom_topic: odom                              # 相對名稱 → /<id>/odom
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+
+# ======================= 局部控制（DWB）與 costmap =======================
+
+/$(var robot_id)/controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    odom_topic: /$(var robot_id)/odom
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5               # 10 秒內沒移動 0.5 m 視為卡住，交給行為樹脫困
+      movement_time_allowance: 10.0
+    general_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      stateful: true
+      xy_goal_tolerance: 0.25                     # 到目標 0.25 m 內、角度 0.25 rad 內算到達
+      yaw_goal_tolerance: 0.25
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: false             # 官方 true：會發布每條取樣軌跡，用不到
+      min_vel_x: 0.0                              # 不主動倒車（後退由 behavior 的 backup 負責）
+      min_vel_y: 0.0
+      max_vel_x: 0.5                              # 官方 0.26（TurtleBot3）；本車導航上限 0.5
+      max_vel_y: 0.0                              # 差速車不能橫移
+      max_vel_theta: 1.0
+      min_speed_xy: 0.0
+      max_speed_xy: 0.5
+      min_speed_theta: 0.0
+      acc_lim_x: 2.5
+      acc_lim_y: 0.0
+      acc_lim_theta: 3.2
+      decel_lim_x: -2.5
+      decel_lim_y: 0.0
+      decel_lim_theta: -3.2
+      vx_samples: 20                              # 每週期取樣 20 × 20 組 (vx, vθ)
+      vy_samples: 5
+      vtheta_samples: 20
+      sim_time: 1.7                               # 每組速度往前模擬 1.7 秒的軌跡來評分
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.25
+      short_circuit_trajectory_evaluation: true
+      stateful: true
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 0.02
+      PathAlign.scale: 32.0
+      PathAlign.forward_point_distance: 0.1
+      GoalAlign.scale: 24.0
+      GoalAlign.forward_point_distance: 0.1
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+# 局部 costmap：以車為中心 3 × 3 m 的滾動視窗，只看光達（地圖外的新障礙物也看得到）
+/$(var robot_id)/local_costmap/local_costmap:
+  ros__parameters:
+    update_frequency: 5.0
+    publish_frequency: 2.0
+    global_frame: $(var robot_id)/odom
+    robot_base_frame: $(var robot_id)/base_footprint
+    rolling_window: true
+    width: 3
+    height: 3
+    resolution: 0.05
+    # 矩形車體：車身 0.5 × 0.4 m，加上兩側輪子外緣 ±0.24 m（官方用 robot_radius 0.22 的圓）
+    footprint: "[[0.25, 0.24], [0.25, -0.24], [-0.25, -0.24], [-0.25, 0.24]]"
+    plugins: ["obstacle_layer", "inflation_layer"]  # 官方 voxel_layer 是 3D 用，2D 光達用 obstacle_layer
+    obstacle_layer:
+      plugin: "nav2_costmap_2d::ObstacleLayer"
+      enabled: true
+      observation_sources: scan
+      scan:
+        topic: /$(var robot_id)/scan
+        max_obstacle_height: 2.0
+        clearing: true
+        marking: true
+        data_type: "LaserScan"
+        raytrace_max_range: 3.0
+        raytrace_min_range: 0.0
+        obstacle_max_range: 2.5
+        obstacle_min_range: 0.0
+    inflation_layer:
+      plugin: "nav2_costmap_2d::InflationLayer"
+      cost_scaling_factor: 3.0
+      inflation_radius: 0.55
+    always_send_full_costmap: true
+
+# 全域 costmap：整張地圖 + 光達看到的新障礙物 + 膨脹層，給 planner 規劃路徑
+/$(var robot_id)/global_costmap/global_costmap:
+  ros__parameters:
+    update_frequency: 1.0
+    publish_frequency: 1.0
+    global_frame: map
+    robot_base_frame: $(var robot_id)/base_footprint
+    resolution: 0.05
+    track_unknown_space: true
+    footprint: "[[0.25, 0.24], [0.25, -0.24], [-0.25, -0.24], [-0.25, 0.24]]"
+    plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+    static_layer:
+      plugin: "nav2_costmap_2d::StaticLayer"
+      map_topic: /$(var robot_id)/map             # 明確給絕對名稱（相對名稱會解析到 costmap 子節點的 namespace）
+      map_subscribe_transient_local: true
+    obstacle_layer:
+      plugin: "nav2_costmap_2d::ObstacleLayer"
+      enabled: true
+      observation_sources: scan
+      scan:
+        topic: /$(var robot_id)/scan
+        max_obstacle_height: 2.0
+        clearing: true
+        marking: true
+        data_type: "LaserScan"
+        raytrace_max_range: 3.0
+        raytrace_min_range: 0.0
+        obstacle_max_range: 2.5
+        obstacle_min_range: 0.0
+    inflation_layer:
+      plugin: "nav2_costmap_2d::InflationLayer"
+      cost_scaling_factor: 3.0
+      inflation_radius: 0.55
+    always_send_full_costmap: true
+
+/$(var robot_id)/lifecycle_manager_navigation:
+  ros__parameters:
+    autostart: true
+    node_names: ["controller_server", "smoother_server", "planner_server", "behavior_server",
+                 "bt_navigator", "waypoint_follower", "velocity_smoother"]

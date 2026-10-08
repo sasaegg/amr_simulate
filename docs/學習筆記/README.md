@@ -33,3 +33,4 @@
 | 15 | [導航套件、參數代換與執行資料目錄](15-導航套件與參數代換.md) | 1.1–1.3 |
 | 16 | [slam_toolbox 建圖](16-slam_toolbox建圖.md) | 2.1、2.2、2.4、2.5 |
 | 18 | [AMCL 定位](18-AMCL定位.md) | 3.1 |
+| 19 | [Nav2 架構與 lifecycle](19-Nav2架構與lifecycle.md) | 4.1 |

@@ -40,7 +40,7 @@
 XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_substs="true"/>` 讓 YAML 內可寫 `$(var robot_id)`：
 - 節點鍵用完整名稱：`/$(var robot_id)/controller_server:`、`/$(var robot_id)/global_costmap/global_costmap:`——costmap 是 planner／controller 程序內的子節點，參數檔以完整名稱比對才會套用到它們，也避免依賴 Nav2 官方 Python 的 `RewrittenYaml`。
 - frame：`map`（不加前綴）、`$(var robot_id)/odom`、`$(var robot_id)/base_footprint`。
-- `use_sim_time` 不寫在 YAML，由 launch 對每個節點以 `<param name="use_sim_time" value="$(var use_sim_time)"/>` 設定（避免兩處矛盾）。
+- `use_sim_time` 不寫在 YAML，由 launch 對每個節點以 `ros_args="-p use_sim_time:=$(var use_sim_time)"` 設定（避免兩處矛盾）。**不用 `<param>`**：它只套用到程序的主節點，planner／controller 程序內的 costmap 子節點仍是 false（task 4.1 實測），`--ros-args -p` 是程序層級、套用到所有節點。
 - 替代：每台車一份參數檔（重複）；Python launch 用 `RewrittenYaml`（違反 XML 決定）。**先在 task 1 驗證**這個機制對 costmap 子節點有效；若無效，退回改用 `/**/global_costmap/global_costmap:` 萬用鍵加 launch 層級覆寫 frame。
 - 2026-10-08 task 1.2 驗證通過：以 `robot_id:=amr7` 啟動 planner_server，子節點 `/amr7/global_costmap/global_costmap` 取得 `robot_base_frame: amr7/base_footprint`、`global_frame: amr7/odom`；對照組不加 `allow_substs` 時 rcl 解析參數檔失敗、節點立即崩潰（鍵含 `$(` 不是合法 namespace）。不需要退路。
 

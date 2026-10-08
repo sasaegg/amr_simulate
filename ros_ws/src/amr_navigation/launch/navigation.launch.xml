@@ -15,27 +15,71 @@
 
   <let name="params" value="$(find-pkg-share amr_navigation)/config/nav2.yaml"/>
 
+  <!-- use_sim_time 一律用 ros_args（-p 是程序層級的參數，套用到程序內所有節點）：
+       planner／controller 程序內的 costmap 子節點、bt_navigator 的內部節點都吃得到；
+       用 <param> 只會套到主節點，costmap 會用牆上時鐘、和模擬時間的 TF 對不上 -->
+
   <group>
     <push-ros-namespace namespace="$(var robot_id)"/>
 
     <!-- ==================== 定位 ==================== -->
     <!-- map_server：讀地圖檔，發布 /ID/map（Transient Local） -->
-    <node pkg="nav2_map_server" exec="map_server" name="map_server" output="screen">
+    <node pkg="nav2_map_server" exec="map_server" name="map_server" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
       <param from="$(var params)" allow_substs="true"/>
       <param name="yaml_filename" value="/data/maps/$(var map).yaml"/>
-      <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 
     <!-- amcl：粒子濾波器，以光達比對地圖，發布 map → ID/odom -->
-    <node pkg="nav2_amcl" exec="amcl" name="amcl" output="screen">
+    <node pkg="nav2_amcl" exec="amcl" name="amcl" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
       <param from="$(var params)" allow_substs="true"/>
-      <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 
     <!-- lifecycle_manager：依序 configure → activate 上面兩個節點 -->
-    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_localization" output="screen">
+    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_localization" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
       <param from="$(var params)" allow_substs="true"/>
-      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+
+    <!-- ==================== 導航 ==================== -->
+    <!-- controller_server：DWB 局部控制，沿路徑產生速度；輸出先交給 velocity_smoother -->
+    <node pkg="nav2_controller" exec="controller_server" name="controller_server" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+      <remap from="cmd_vel" to="cmd_vel_nav"/>
+    </node>
+
+    <!-- smoother_server：把全域路徑修平順（行為樹會呼叫） -->
+    <node pkg="nav2_smoother" exec="smoother_server" name="smoother_server" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+    </node>
+
+    <!-- planner_server：NavFn 在全域 costmap 上規劃路徑 -->
+    <node pkg="nav2_planner" exec="planner_server" name="planner_server" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+    </node>
+
+    <!-- behavior_server：脫困動作（原地旋轉、後退、等待） -->
+    <node pkg="nav2_behaviors" exec="behavior_server" name="behavior_server" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+    </node>
+
+    <!-- bt_navigator：用行為樹串起「規劃 → 跟隨 → 失敗時脫困」；收 goal_pose 或 navigate_to_pose action -->
+    <node pkg="nav2_bt_navigator" exec="bt_navigator" name="bt_navigator" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+    </node>
+
+    <!-- waypoint_follower：依序走多個點（follow_waypoints action） -->
+    <node pkg="nav2_waypoint_follower" exec="waypoint_follower" name="waypoint_follower" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+    </node>
+
+    <!-- velocity_smoother：cmd_vel_nav → 限速、限加速度 → cmd_vel（/ID/cmd_vel，與 teleop 同一個入口） -->
+    <node pkg="nav2_velocity_smoother" exec="velocity_smoother" name="velocity_smoother" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+      <remap from="cmd_vel" to="cmd_vel_nav"/>
+      <remap from="cmd_vel_smoothed" to="cmd_vel"/>
+    </node>
+
+    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_navigation" ros_args="-p use_sim_time:=$(var use_sim_time)" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
     </node>
   </group>
 </launch>

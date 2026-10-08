@@ -12,10 +12,10 @@
   <arg name="robot_id" default="amr1" description="車輛 id（namespace 與 frame 前綴）"/>
   <arg name="use_sim_time" default="false" description="模擬時為 true（由中控帶起時自動設定）"/>
 
-  <!-- async：跟不上時跳過部分 scan，不累積延遲；官方建議線上建圖用這個 -->
-  <node pkg="slam_toolbox" exec="async_slam_toolbox_node" name="slam_toolbox"
+  <!-- async：跟不上時跳過部分 scan，不累積延遲；官方建議線上建圖用這個。
+       use_sim_time 用 ros_args 傳：套用到程序內所有節點（navigation.launch.xml 同樣做法） -->
+  <node pkg="slam_toolbox" exec="async_slam_toolbox_node" name="slam_toolbox" ros_args="-p use_sim_time:=$(var use_sim_time)"
         namespace="$(var robot_id)" output="screen">
     <param from="$(find-pkg-share amr_navigation)/config/slam_toolbox.yaml" allow_substs="true"/>
-    <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
 </launch>
