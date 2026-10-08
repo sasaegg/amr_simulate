@@ -60,6 +60,29 @@
 - **WHEN** 以 `hardware:=foo` 啟動車子系統
 - **THEN** 訊息指出 `hardware` 必須是 `sim` 或 `real` 並顯示收到的值，沒有啟動任何節點即結束
 
+### Requirement: 車子系統的功能模式
+車子系統 SHALL 依啟動參數 `mode` 決定同時帶起的功能：`none`（預設，只有驅動與共用節點）、`navigation`（定位與導航）。建圖一定有人操作，SHALL 不由 `mode` 帶起，而是在車子系統執行中另外啟動（建圖 UI）。不合法的值（含 `mapping`）SHALL 顯示訊息（含收到的值、可用值與建圖的啟動方式）並結束，不啟動任何節點。建圖與導航 SHALL 能在車子系統執行中單獨啟動與停止，不需重啟驅動。
+
+#### Scenario: 預設不帶建圖或導航
+- **WHEN** 以 `hardware:=sim` 啟動車子系統，沒有指定 `mode`
+- **THEN** 沒有建圖或導航節點，也沒有 `map` 座標系
+
+#### Scenario: 以模式一次啟動
+- **WHEN** 以 `hardware:=sim mode:=navigation` 啟動車子系統
+- **THEN** 驅動、共用節點與導航節點都啟動
+
+#### Scenario: 不合法的模式
+- **WHEN** 以 `hardware:=sim mode:=foo` 啟動車子系統
+- **THEN** 訊息指出 `mode` 必須是 `none` 或 `navigation` 並顯示收到的值，沒有啟動任何節點即結束
+
+#### Scenario: 建圖不經由 mode
+- **WHEN** 以 `hardware:=sim mode:=mapping` 啟動車子系統
+- **THEN** 訊息指出 `mode` 不接受 `mapping` 並提示以建圖 UI 啟動建圖，沒有啟動任何節點即結束
+
+#### Scenario: 單獨切換建圖與導航
+- **WHEN** 車子系統以 `mode:=none` 執行中，使用者另外啟動建圖，之後停止建圖再另外啟動導航
+- **THEN** 驅動在過程中持續執行，車輛留在原地，不被移回出生點
+
 ### Requirement: 車子系統不依賴模擬套件
 車子系統的套件（部署到真車上的部分）SHALL 不依賴任何 Gazebo／ros_gz 相關套件與虛擬驅動套件；虛擬驅動只在模擬模式時以套件名稱載入。
 
@@ -90,11 +113,15 @@
 - **THEN** 訊息顯示嘗試載入的路徑，Gazebo 結束後整個世界 launch 一起結束，不殘留其他程序
 
 ### Requirement: 執行設定
-兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）SHALL 放在專案 `docker/amr_sim/config/` 的一個環境變數檔；世界與車子系統的設定（world、headless、hardware、robot_id、出生位姿）SHALL 以 launch 參數傳入，各參數的預設值寫在 launch 檔中。
+兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）SHALL 放在專案 `docker/amr_sim/config/` 的一個環境變數檔；世界與車子系統的設定（world、headless、hardware、robot_id、出生位姿、mode、map）SHALL 以 launch 參數傳入，各參數的預設值寫在 launch 檔中。執行中產生的資料（地圖）SHALL 存放在專案的 `docker/amr_sim/data/` 目錄，以可寫方式掛載到 robot 容器的 `/data`，存入的檔案在主機上屬於使用者。
 
 #### Scenario: 兩個容器取得相同 domain
 - **WHEN** 使用者把環境變數檔中的 `ROS_DOMAIN_ID` 改為 42 並重建容器，再分別進入 `sim` 與 `robot` 執行 `ros2 topic list`
 - **THEN** 兩個 shell 的 `ROS_DOMAIN_ID` 皆為 42，且在 `robot` 中可看到 `sim` 發布的 `/clock`
+
+#### Scenario: 地圖存到主機
+- **WHEN** robot 容器內的程序在 `/data/maps/` 寫入地圖檔
+- **THEN** 檔案出現在主機的 `docker/amr_sim/data/maps/`，擁有者為主機使用者
 
 ### Requirement: 容器以標準 X11 取得顯示
 兩個容器 SHALL 只透過標準 Linux X11 機制（`DISPLAY` 環境變數與 `/tmp/.X11-unix` socket）把圖形畫面送到主機的 X server；容器內程序 SHALL 以與主機使用者相同的 UID 執行。
