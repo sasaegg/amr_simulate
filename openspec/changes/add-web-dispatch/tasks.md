@@ -12,7 +12,7 @@
 ## 2. 後端核心（不需要 ROS 的部分）
 
 - [x] 2.1 （筆記 27）建立 `ros_ws/src/amr_server`（ament_python，console script `server`）與 `test_package_boundary.py`；`map_image.py`、`geometry.py`、`state.py`、`bridge.py`（D2）——先寫 pytest（三種顏色、上下翻轉、門檻、yaw 換算、降取樣、地圖範圍）確認失敗再實作。驗證：`colcon build` 成功、pytest 通過
-- [ ] 2.2 （筆記 29）`api.py`：`create_app(bridges, web_dir)`（D5），REST 路由、WebSocket 每 0.1 秒推送、Pydantic 驗證、地圖範圍檢查、靜態檔與未建置訊息；`test_api.py` 以 FakeBridge＋TestClient 涵蓋 `specs/fleet-server` 每個情境的狀態碼與訊息格式（先寫測試）。驗證：pytest 通過
+- [x] 2.2 （筆記 29）`api.py`：`create_app(bridges, web_dir)`（D5），REST 路由、WebSocket 每 0.1 秒推送、Pydantic 驗證、地圖範圍檢查、靜態檔與未建置訊息；`test_api.py` 以 FakeBridge＋TestClient 涵蓋 `specs/fleet-server` 每個情境的狀態碼與訊息格式（先寫測試）。驗證：pytest 通過
 
 ## 3. 後端 ROS 整合
 

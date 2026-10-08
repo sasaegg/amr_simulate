@@ -53,3 +53,4 @@
 |---|---|---|
 | 26 | [server 容器與映像](26-server容器與映像.md) | 1.1–1.2 |
 | 27 | [後端骨架與 rclpy／FastAPI 共存](27-後端骨架與rclpy-FastAPI共存.md) | 2.1、3.2 |
+| 29 | [REST 與 WebSocket（FastAPI）](29-REST與WebSocket.md) | 2.2 |
