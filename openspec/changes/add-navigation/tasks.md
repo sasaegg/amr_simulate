@@ -27,7 +27,7 @@
 - [ ] 4.1 （筆記 19）`navigation.launch.xml` 加入 Nav2 的 7 個節點與 `lifecycle_manager_navigation`（D5：controller 輸出 remap 為 `cmd_vel_nav`、velocity_smoother 輸出 `cmd_vel`），`nav2.yaml` 加入 planner（NavFn）、smoother、behavior、bt_navigator、waypoint_follower 段落；pytest：lifecycle_manager 的 `node_names` 與 launch 中的節點一致、`cmd_vel` 路徑為 `cmd_vel_nav → velocity_smoother → cmd_vel`。驗證：pytest 通過；啟動後 `ros2 lifecycle get` 每個節點皆為 `active`；RViz 2D Goal Pose 點空曠處，車輛開到並停下；導航中按 Ctrl+C 停止導航，車輛 1 秒內停下
 - [ ] 4.2 （筆記 20）`nav2.yaml` 的全域／局部 costmap 與 DWB 段落（D6：矩形 footprint、static/obstacle/inflation、局部 3×3 m 滾動視窗、速度與加速度上限、目標容差）；pytest：footprint 與 xacro 車身／輪子外緣一致、速度與加速度上限不超過 xacro 硬體上限、obstacle 層觀測來源為 `/amr1/scan`。驗證：pytest 通過；RViz 看得到膨脹層；直線導航時 `/amr1/odom` 線速度 ≤ 0.5 m/s；導航途中在 Gazebo 放一個箱子擋路，車輛不撞到並抵達（記錄於筆記）；目標點在牆內時 RViz 顯示失敗且車停下
 - [ ] 4.3 （筆記 20）撰寫 `amr_hw_sim/test/test_navigation_smoke.py`（launch_testing：world headless + `robot.launch.xml hardware:=sim x:=1 y:=1` + `navigation.launch.xml use_sim_time:=true map:=warehouse_small`）：發布 `/amr1/initialpose` 為地圖座標 (0, 0, 0)（地圖從出生點 (1, 1) 開始建，design D4）後 10 s 內 `map → amr1/base_footprint` 誤差 < 0.3 m、`navigate_to_pose` 送空曠處目標 90 s 內 SUCCEEDED 且誤差 < 0.3 m、送牆內目標回報失敗、導航中 odom 線速度 ≤ 0.5 + 0.05 m/s、定位與導航節點皆在 namespace `amr1`。驗證：`launch_test test/test_navigation_smoke.py` 全部通過、`colcon test` 全部通過
-- [ ] 4.4 （筆記 20）README 新增「定位與導航」：啟動、先 2D Pose Estimate 再 Nav2 Goal、導航時不要用 teleop、疑難排解（地圖找不到、RViz 點了沒反應＝工具 topic 沒帶 namespace、TF extrapolation＝`use_sim_time`、lifecycle 卡住）。驗證：照 README 從啟動到抵達目標做一次
+- [ ] 4.4 （筆記 20）README 新增「定位與導航」：啟動、先 2D Pose Estimate 再 2D Goal Pose、導航時不要用 teleop、疑難排解（地圖找不到、RViz 點了沒反應＝工具 topic 沒帶 namespace、TF extrapolation＝`use_sim_time`、lifecycle 卡住）。驗證：照 README 從啟動到抵達目標做一次
 
 ## 5. 中控整合（sim-runtime）
 
