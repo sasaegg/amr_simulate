@@ -83,7 +83,7 @@ world + `robot.launch.xml hardware:=sim x:=1 y:=1` + `navigation.launch.xml map:
 | 目標在隔間牆內，tolerance 0.5 | **SUCCEEDED 但停在 0.59 m 外** → 改 0 |
 | 目標在隔間牆內，tolerance 0 | ABORTED |
 | 一般目標（含轉 180°） | 19.7 s、誤差 0.07 m |
-| 冒煙測試 | 7 項通過（約 54 s）；`colcon test` 155 tests 全部通過 |
+| 冒煙測試 | 7 項通過（約 54 s）；以使用者建的正式地圖再跑一次也全部通過；`colcon test` 159 tests 全部通過 |
 
 ## 面試追問
 
@@ -107,5 +107,5 @@ A：明確回報失敗，不能「接近就算成功」。上層（派車、任�
 - **planner tolerance 讓「到不了」變成「成功」**：見上面。
 - **目標被拒絕**：導航節點還沒 active；測試等 `is_active`。
 - **sim 容器沒有 `/data`**：整合測試改在 robot 容器跑，README 更新。
-- **Gazebo 關閉偶爾超過 5 秒被 SIGKILL**：測試結束時所有程序同時收到 SIGINT，3 次有 2 次 Gazebo 沒在 5 秒內結束；單獨關閉 Gazebo 時 0.2 秒。三個冒煙測試以 `SetLaunchConfiguration('sigterm_timeout', '20')` 放寬，連跑 3 次都正常結束。使用者 Ctrl+C 世界時只有 Gazebo 那組程序在關閉，不受影響。
+- **測試結束時 Gazebo 偶爾卡死**：所有程序同時收到 SIGINT 時，Gazebo 偶爾沒有結束而被 SIGKILL（-9）。先以為是慢，把 `sigterm_timeout` 放寬到 20 秒，連跑 3 次都正常——但之後跑完整 `colcon test` 時，等了 20 秒還是被 SIGKILL，代表是偶發的卡死而不是慢。單獨關閉 Gazebo（使用者在世界終端機 Ctrl+C）實測 0.2 秒。另外也遇過一次 ros_gz 的 `parameter_bridge` 收尾時 segfault（-11）。這兩個是上游模擬工具，不是被測系統：關閉檢查對 `ign-*`、`parameter_bridge-*` 只印警告，其他程序（robot_state_publisher、watchdog、spawn、slam_toolbox、Nav2 各節點）仍嚴格要求正常結束；`sigterm_timeout` 改回預設（等再久也救不回卡死，只會拖慢測試）。
 - **初始位姿給錯，導航一直卡住**：手算座標時多減了一次出生點。開發腳本改成直接讀 Gazebo 真實位姿來發 initialpose。
