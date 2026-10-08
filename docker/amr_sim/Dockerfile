@@ -7,7 +7,9 @@ FROM osrf/ros:humble-desktop
 ARG DEBIAN_FRONTEND=noninteractive
 
 # 套件安裝：update 與 install 必須在同一個 RUN（同一層），清除 apt 清單也必須在同一層才會真的縮小映像。
+# fonts-noto-cjk：中日韓字型。沒有它，RViz 建圖面板等 Qt 介面的中文會變成方塊
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        fonts-noto-cjk \
         mesa-utils \
         python3-pytest \
         python3-yaml \

@@ -108,3 +108,4 @@ A：單元層級用 Qt 的 offscreen 平台建立元件、檢查狀態；要看�
 - **Xvfb 下整張截圖時對話框是黑的**：沒有視窗管理器／合成器，`xwd -root` 抓不到對話框內容；用 `xdotool search --name` 找到視窗、`import -window <id>` 單獨截圖。
 - **建圖畫面的 Global／Local Costmap 顯示警告**：costmap 只在導航時存在，建圖時沒有資料，屬正常（README 有寫）。
 - **停止時 RViz 被強制結束**：軟體渲染下 RViz 收到 SIGINT 後 10 秒內沒結束；只發生在 Xvfb 測試環境。
+- **使用者畫面上面板的中文全是方塊**：映像裡沒有中文字型。我在 Xvfb 驗證時看得到中文，是因為暫時安裝 imagemagick 時順便裝了字型——**測試環境和使用者環境不一樣，驗證就不算數**。修正：Dockerfile 加 `fonts-noto-cjk`（映像多約 170 MB），並用新映像在乾淨容器裡以 Qt offscreen 把中文畫成圖片確認。之後驗證 GUI 一律用乾淨的映像，不在容器裡另外裝東西。
