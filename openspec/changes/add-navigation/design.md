@@ -103,7 +103,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 
 ### D10：學習筆記
 
-每個實作步驟一篇，編號接續子專案 1（15 起），段落同前（為什麼／做了什麼／怎麼驗證／面試追問／踩坑紀錄）。預計：15 slam_toolbox 建圖、16 存圖與地圖格式、17 AMCL 定位、18 Nav2 架構與 lifecycle、19 costmap 與 DWB、20 導航冒煙測試、21 最終驗收。
+每個實作步驟一篇，編號接續子專案 1（15 起），段落同前（為什麼／做了什麼／怎麼驗證／面試追問／踩坑紀錄）。預計：15 套件骨架、參數代換與執行資料目錄、16 slam_toolbox 建圖（含 RViz 設定檔與建圖冒煙測試）、17 存圖與地圖格式、18 AMCL 定位、19 Nav2 架構與 lifecycle、20 costmap 與 DWB（含導航冒煙測試）、21 中控模式整合、22 最終驗收。冒煙測試寫在各自功能的群組中，不集中在最後。
 
 ## Risks / Trade-offs
 
