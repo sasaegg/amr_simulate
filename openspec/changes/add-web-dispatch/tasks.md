@@ -17,7 +17,7 @@
 ## 3. 後端 ROS 整合
 
 - [x] 3.1 （筆記 28）`ros_bridge.py`（RosRobotBridge、FleetNode，D4）與 `test_ros_bridge.py`（假 NavigateToPose action server、靜態 TF、假地圖與 plan）：成功、拒絕、放棄、取消（含等待接受中取消）、新目標取代舊目標（舊結果延遲送達不改寫狀態）、位置過期、初始位姿訊息內容與共變異數。驗證：pytest 通過
-- [ ] 3.2 （筆記 27）`main.py`（D3：executor 背景執行緒＋uvicorn 主執行緒、結束清理）與 `launch/server.launch.xml`（`robots`、`host`、`port`、`web_dir`、`use_sim_time`）；pytest 檢查 launch 參數與 use_sim_time 以 ros_args 設定。驗證：server 容器中啟動，`curl localhost:8000/api/robots` 回 `amr1`；世界、車子系統、導航執行中時 `curl .../map` 與 yaml 一致、`curl -X POST .../initial_pose` 後 WebSocket（`python3` 簡易用戶端）位置正確、`curl -X POST .../goal` 車輛開到；Ctrl+C 後程序在 2 秒內結束、無殘留
+- [x] 3.2 （筆記 27）`main.py`（D3：executor 背景執行緒＋uvicorn 主執行緒、結束清理）與 `launch/server.launch.xml`（`robots`、`host`、`port`、`web_dir`、`use_sim_time`）；pytest 檢查 launch 參數與 use_sim_time 以 ros_args 設定。驗證：server 容器中啟動，`curl localhost:8000/api/robots` 回 `amr1`；世界、車子系統、導航執行中時 `curl .../map` 與 yaml 一致、`curl -X POST .../initial_pose` 後 WebSocket（`python3` 簡易用戶端）位置正確、`curl -X POST .../goal` 車輛開到；Ctrl+C 後程序在 2 秒內結束、無殘留
 - [ ] 3.3 （筆記 32）`amr_hw_sim/test/test_web_dispatch_smoke.py`（D7 端到端）；amr_hw_sim 的 package.xml 加 `amr_server` test_depend。驗證：`launch_test` 通過、`colcon test` 全部通過
 
 ## 4. 前端

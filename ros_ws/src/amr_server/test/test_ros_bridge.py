@@ -18,6 +18,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_srvs.srv import Trigger
 from tf2_ros import TransformBroadcaster
 
 from amr_server.bridge import NavigationUnavailable, NoActiveGoal
@@ -63,10 +64,17 @@ class FakeCar(Node):
         self.initial_poses = []
         self.create_subscription(PoseWithCovarianceStamped, f'/{ROBOT}/initialpose',
                                  self.initial_poses.append, 10)
+        self.nav_active = True
+        self.create_service(Trigger, f'/{ROBOT}/lifecycle_manager_navigation/is_active',
+                            self.on_is_active, callback_group=group)
         self.tf = TransformBroadcaster(self)
         self.pose = (1.0, 2.0, 0.5)
         self.broadcast = True
         self.create_timer(0.05, self.publish_tf, callback_group=group)
+
+    def on_is_active(self, request, response):
+        response.success = self.nav_active
+        return response
 
     def publish_tf(self):
         if not self.broadcast:
@@ -159,6 +167,7 @@ def car(ros):
     car.behaviors.clear()
     car.release.clear()
     car.broadcast = True
+    car.nav_active = True
     return car
 
 
@@ -277,6 +286,20 @@ def test_send_goal_without_navigation(ros):
         nocar.send_goal(1.0, 1.0, 0.0)
     assert time.monotonic() - start < 2.0
     assert nocar.state().status == IDLE
+
+
+def test_navigation_still_starting(ros, car):
+    # action server 已存在，但 Nav2 的節點還沒全部 active（例如還在等初始位姿）：不能派車
+    bridge = ros[1].bridges[ROBOT]
+    assert wait_until(lambda: bridge.state().status != NAVIGATING, 10.0)
+    car.nav_active = False
+    assert wait_until(lambda: not bridge.state().nav_ready, 3.0)
+    status = bridge.state().status
+    with pytest.raises(NavigationUnavailable, match='還在啟動'):
+        bridge.send_goal(1.0, 1.0, 0.0)
+    assert bridge.state().status == status
+    car.nav_active = True
+    assert wait_until(lambda: bridge.state().nav_ready, 3.0)
 
 
 def test_initial_pose_message(bridge, car):

@@ -78,18 +78,25 @@ self._node.executor.create_task(self._send, seq, goal)
 
 狀態等 Nav2 回報 CANCELED 才變 `canceled`（而不是一按就改），網頁看到的就是車真正的狀態。
 
-### 6. 初始位姿
+### 6. 「導航存在」不等於「導航能接受目標」
+
+實測：導航剛啟動時，bt_navigator 的 action server 已經存在（`server_is_ready()` 是 true），但 Nav2 的 lifecycle manager 還在等初始位姿、planner 還沒 Activating，這時送目標會被**拒絕**。網頁上剛按完「設定初始位姿」立刻派車就會碰到。
+
+解法：每秒呼叫 Nav2 的標準服務 `/<id>/lifecycle_manager_navigation/is_active`（`std_srvs/Trigger`，所有受管理的節點都 active 才回 true）。`nav_ready` = action server 存在**且** is_active；派車前也檢查，沒啟動完成回 503「導航還在啟動」，比「Nav2 拒絕目標」更清楚該怎麼辦。
+
+### 7. 初始位姿
 
 發布 `PoseWithCovarianceStamped`，共變異數和 RViz 的 2D Pose Estimate 一樣（x、y 0.25 ＝ 標準差 0.5 m；yaw 0.0685 ≈ 15°）——告訴 AMCL「大概在這裡」，粒子撒在這個範圍內。
 
 ## 怎麼驗證（2026-10-08 實測）
 
-`test_ros_bridge.py` 14 項，同一個程序裡放一台假車（`FakeCar`）：假 action server（依目標 x 決定成功／拒絕／放棄／直到取消／等待指示）、20 Hz 的 TF、地圖與路徑發布者、initialpose 訂閱者。不需要 Gazebo 與 Nav2，約 4 秒。
+`test_ros_bridge.py` 15 項，同一個程序裡放一台假車（`FakeCar`）：假 action server（依目標 x 決定成功／拒絕／放棄／直到取消／等待指示）、20 Hz 的 TF、地圖與路徑發布者、initialpose 訂閱者。不需要 Gazebo 與 Nav2，約 4 秒。
 
 - 位置來自 TF、TF 停止 0.5 s 後變 `None`、恢復後又有。
 - 地圖資訊、PNG、版本遞增。
 - 成功（含 feedback、路徑降取樣成 11 點、結束後路徑清空）、拒絕、放棄、取消、送出後立刻取消、沒目標時取消丟例外。
 - **新目標取代舊目標，舊結果晚到**：舊目標先「暫停」，新目標成功後才讓舊目標 ABORTED，狀態仍是 succeeded、目標是新的。**刻意拿掉 `seq` 比對時這個測試會失敗**，確認它真的抓得到這個 bug。
+- Nav2 還在啟動（假的 is_active 回 false）：`nav_ready` 變 false、派車丟「還在啟動」、狀態不變；恢復後 `nav_ready` 變回 true。
 - 導航不存在時 `send_goal` 在 2 s 內丟 `NavigationUnavailable`、狀態不變。
 - 初始位姿的 frame、位置、四元數、共變異數。
 - 連跑 3 次全部通過（不是碰巧）。車輛 id 用 `tst1`，不會和使用者正在跑的 `amr1` 撞名。
@@ -109,6 +116,8 @@ A：SingleThreadedExecutor 所有回呼依序在一個執行緒；MultiThreadedE
 A：TF 結合了定位修正（低頻）與里程計（高頻），是「車現在在哪」的標準答案，也和 RViz、Nav2 用的一致；定位 topic 可能很久才更新一次。
 
 ## 踩坑紀錄
+
+- **剛給初始位姿就派車被拒絕**：見上方第 6 點，task 3.2 實際跑 Nav2 時發現，假車測試抓不到（假 action server 一存在就接受）。補上 is_active 檢查與測試，spec 補「導航還在啟動」情境。
 
 - **地圖解析度變成 0.05000000074505806**：`OccupancyGrid.info.resolution` 是 float32，轉成 Python float 後多了尾數。四捨五入到 6 位再給前端。
 - **測試的 TF 不能用 static**：static transform 的時間戳不會前進，會被過期判斷當成「車子系統停了」。測試用一般的 TransformBroadcaster 以 20 Hz 發布（真實系統中 AMCL 和 odom 都是動態 TF）。

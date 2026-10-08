@@ -52,7 +52,7 @@ test/
 
 ### D3：rclpy 與 FastAPI 在同一個程序
 
-- `main.py`：`rclpy.init()` → 建立 `FleetNode`（一個節點，內含每台車的訂閱、action client、publisher，以及共用的 tf2 Buffer／TransformListener）→ `MultiThreadedExecutor` 在背景執行緒 `spin()` → 主執行緒 `uvicorn.run(app, host, port)`。uvicorn 收到 SIGINT（`ros2 launch` 的 Ctrl+C）結束後，`executor.shutdown()`、`node.destroy_node()`、`rclpy.shutdown()`。
+- `main.py`：`rclpy.init(signal_handler_options=NO)`（Ctrl+C 交給 uvicorn）→ 建立 `FleetNode`（一個節點，內含每台車的訂閱、action client、publisher，以及共用的 tf2 Buffer／TransformListener）→ `SingleThreadedExecutor` 在背景執行緒 `spin()` → 主執行緒 `uvicorn.run(app, host, port)`。uvicorn 收到 SIGINT（`ros2 launch` 的 Ctrl+C）結束後，`executor.shutdown()`、等 spin 執行緒結束（不等的話程序結束時會崩潰）、`node.destroy_node()`、`rclpy.shutdown()`。
 - 共享狀態：ROS 回呼（背景執行緒）寫入 RobotState，API／WebSocket（asyncio 執行緒）讀取；每台車一把 `threading.Lock`，讀取時回傳複本。
 - 會等待的 API（例如 action server 是否就緒）宣告成一般 `def` 路由，FastAPI 會放到執行緒池，不卡住事件迴圈；WebSocket 用 `async def`，每 0.1 秒 `await asyncio.sleep(0.1)` 後送出所有車的狀態快照。
 - 參數：launch 以 `<param>` 給節點 `robots`、`host`、`port`、`web_dir`（預設 `/web/dist`）；`use_sim_time` 以 `ros_args="-p use_sim_time:=$(var use_sim_time)"`（同子專案 2 的做法）。
@@ -63,15 +63,15 @@ test/
 - **地圖**：訂閱 `/<id>/map`（`QoS(1).reliable().transient_local()`），每收到一則 `map_version += 1`，同時以 `map_image` 轉好 PNG 快取（地圖不常變，避免每次請求都轉）。
 - **位置**：每次取狀態時 `buffer.lookup_transform("map", "<id>/base_footprint", Time())`（最新一筆）；查不到，或 `now − 該筆時間 > 2 s`，位置為 `None`。`use_sim_time` 為 true 時 `now` 是模擬時間，與 TF 時間一致。
 - **路徑**：訂閱 `/<id>/plan`，降取樣成點與點間隔約 0.1 m（保留最後一點）；狀態不是 `navigating` 時清空。
-- **派車**：`send_goal(x, y, yaw)`：
-  1. `action_client.wait_for_server(timeout_sec=0.5)` 失敗 → 回報「導航沒在執行」（API 回 503）。
+- **派車**：`send_goal(x, y, yaw)`（送出與取消都以 `executor.create_task` 交給 executor 執行緒做：Humble 的 ActionClient 從其他執行緒 `send_goal_async` 時，回覆可能在 future 登記前就被處理掉；executor 用 SingleThreadedExecutor）：
+  1. `action_client.wait_for_server(timeout_sec=0.5)` 失敗 → 回報「導航沒在執行」（API 回 503）；Nav2 尚未全部啟動 → 回報「導航還在啟動」（503）。
   2. 遞增 `goal_seq`，狀態設為 `navigating`、記錄目標、清空 message，呼叫 `send_goal_async`（帶 feedback 回呼取 `distance_remaining`）。
   3. goal response：被拒絕 → `failed`「Nav2 拒絕目標」；接受 → 記錄 goal handle，取得 result future。
   4. result：`SUCCEEDED` → `succeeded`；`CANCELED` → `canceled`；`ABORTED` → `failed`「Nav2 放棄（到不了或卡住）」（Humble 的 NavigateToPose 結果沒有錯誤碼）。
   - **每個回呼都比對 `goal_seq`**：被新目標取代的舊目標，其結果（Nav2 會以 ABORTED／CANCELED 結束舊目標）不得改寫目前的狀態。
 - **取消**：狀態不是 `navigating` → 回報「沒有進行中的目標」（409）。goal handle 已取得 → `cancel_goal_async`；還在等接受 → 記下「接受後立刻取消」。狀態在 result 回來時變 `canceled`。
 - **初始位姿**：發布 `PoseWithCovarianceStamped` 到 `/<id>/initialpose`，frame `map`、stamp 為現在、共變異數與 RViz 2D Pose Estimate 相同（x、y 0.25，yaw 0.0685）。
-- **就緒狀態**：`map_ready` = 收到過地圖；`pose_ready` = 位置不是 `None`；`nav_ready` = `action_client.server_is_ready()`（不等待）。
+- **就緒狀態**：`map_ready` = 收到過地圖；`pose_ready` = 位置不是 `None`；`nav_ready` = action server 存在**且** Nav2 的節點都已啟動——每秒呼叫 `/<id>/lifecycle_manager_navigation/is_active`（`std_srvs/Trigger`，Nav2 標準服務）。task 3.2 實測：導航剛啟動、planner 還在等初始位姿時，bt_navigator 的 action server 已存在但會拒絕目標；所以派車前也檢查，未啟動完成回 503「導航還在啟動」。
 
 ### D5：API 細節
 

@@ -6,6 +6,7 @@
   TF map → <id>/base_footprint
   /<id>/navigate_to_pose    nav2_msgs/action/NavigateToPose
   /<id>/initialpose         geometry_msgs/PoseWithCovarianceStamped（AMCL 訂閱）
+  /<id>/lifecycle_manager_navigation/is_active   std_srvs/Trigger（Nav2 的節點是否都已啟動）
 
 執行緒：ROS 回呼都在 executor 的單一執行緒；API 在其他執行緒呼叫這裡的方法。
 共享的狀態以 lock 保護；送目標與取消交給 executor 執行緒做（executor.create_task）——
@@ -23,6 +24,7 @@ from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from amr_server.bridge import NavigationUnavailable, NoActiveGoal
@@ -33,6 +35,9 @@ from amr_server.state import (
 
 # RViz 2D Pose Estimate 送出的共變異數：x、y 各 0.5 m 標準差，yaw 約 15°
 INITIAL_POSE_COVARIANCE = {0: 0.25, 7: 0.25, 35: 0.06853891945200942}
+
+# Nav2 的 lifecycle manager（navigation.launch.xml 與官方 nav2_bringup 都用這個名稱）
+NAV_LIFECYCLE_MANAGER = 'lifecycle_manager_navigation'
 
 
 class RosRobotBridge:
@@ -55,6 +60,7 @@ class RosRobotBridge:
         self._goal_seq = 0               # 每送一個目標加 1；回呼時比對，被取代的舊目標不得改寫狀態
         self._goal_handle = None
         self._cancel_requested = False
+        self._nav_active = False         # Nav2 的節點都 active 才接受目標（見 _poll_nav_active）
 
         latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -63,6 +69,12 @@ class RosRobotBridge:
         self._action = ActionClient(node, NavigateToPose, f'/{robot_id}/navigate_to_pose')
         self._initial_pose_pub = node.create_publisher(
             PoseWithCovarianceStamped, f'/{robot_id}/initialpose', 10)
+        # action server 存在不代表能接受目標：Nav2 啟動中（例如還在等初始位姿）時 bt_navigator 會拒絕。
+        # 每秒問一次 lifecycle manager 是否都已啟動
+        self._is_active = node.create_client(
+            Trigger, f'/{robot_id}/{NAV_LIFECYCLE_MANAGER}/is_active')
+        self._is_active_pending = False
+        node.create_timer(1.0, self._poll_nav_active)
 
     # ---- 給 API 的介面（任何執行緒） ----
 
@@ -73,7 +85,7 @@ class RosRobotBridge:
                 pose=pose, goal=self._goal, status=self._status, message=self._message,
                 distance_remaining=self._distance, plan=list(self._plan),
                 map_version=self._map_version, map_ready=self._map_info is not None,
-                nav_ready=self._action.server_is_ready())
+                nav_ready=self._nav_active and self._action.server_is_ready())
 
     def map_info(self):
         with self._lock:
@@ -88,6 +100,9 @@ class RosRobotBridge:
             raise NavigationUnavailable(
                 f'{self._id} 的導航沒有在執行（找不到 /{self._id}/navigate_to_pose）')
         with self._lock:
+            if not self._nav_active:
+                raise NavigationUnavailable(
+                    f'{self._id} 的導航還在啟動（需要先設定初始位姿；啟動完成要數秒）')
             self._goal_seq += 1
             seq = self._goal_seq
             self._status = NAVIGATING
@@ -141,7 +156,23 @@ class RosRobotBridge:
         return Pose2D(t.transform.translation.x, t.transform.translation.y,
                       yaw_from_quaternion(r.x, r.y, r.z, r.w))
 
-    # ---- 訂閱回呼（executor 執行緒） ----
+    # ---- 訂閱與計時器回呼（executor 執行緒） ----
+
+    def _poll_nav_active(self):
+        if not self._is_active.service_is_ready():
+            with self._lock:
+                self._nav_active = False
+            return
+        if self._is_active_pending:
+            return
+        self._is_active_pending = True
+        self._is_active.call_async(Trigger.Request()).add_done_callback(self._on_nav_active)
+
+    def _on_nav_active(self, future):
+        self._is_active_pending = False
+        response = future.result()
+        with self._lock:
+            self._nav_active = bool(response and response.success)
 
     def _on_map(self, msg):
         png = occupancy_to_png(msg.info.width, msg.info.height, msg.data)   # 在鎖外轉，不擋住 API
@@ -189,7 +220,7 @@ class RosRobotBridge:
             if seq != self._goal_seq:
                 return                             # 已被新目標取代（Nav2 會自己結束舊目標）
             if not handle.accepted:
-                self._finish(FAILED, 'Nav2 拒絕目標')
+                self._finish(FAILED, 'Nav2 拒絕目標（導航可能還在啟動，稍後再試）')
                 return
             self._goal_handle = handle
             cancel_now = self._cancel_requested
@@ -223,10 +254,16 @@ class RosRobotBridge:
 
 
 class FleetNode(Node):
-    """中控的 ROS 節點：一個 TF buffer 給所有車共用，每台車一個 RosRobotBridge。"""
+    """中控的 ROS 節點：一個 TF buffer 給所有車共用，每台車一個 RosRobotBridge。
 
-    def __init__(self, robots, pose_timeout=2.0):
+    robots 沒給時讀參數 robots（逗號分隔，例如 "amr1,amr2"）。
+    """
+
+    def __init__(self, robots=None, pose_timeout=2.0):
         super().__init__('amr_server')
+        if robots is None:
+            text = self.declare_parameter('robots', 'amr1').value
+            robots = [r.strip() for r in text.split(',') if r.strip()]
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.bridges = {robot_id: RosRobotBridge(self, robot_id, self.tf_buffer, pose_timeout)

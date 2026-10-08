@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!--
+  中控後端（server 容器）：HTTP／WebSocket 提供車輛地圖、即時位置與派車，並提供網頁。
+    ros2 launch amr_server server.launch.xml                      # 管理 amr1，http://localhost:8000/
+    ros2 launch amr_server server.launch.xml use_sim_time:=true   # 模擬時（TF 的時間是 /clock）
+-->
+<launch>
+  <arg name="robots" default="amr1" description="管理的車輛 id，逗號分隔（例如 amr1,amr2）"/>
+  <arg name="host" default="127.0.0.1" description="監聽位址；127.0.0.1 只有本機能連，0.0.0.0 開放給其他電腦（目前沒有驗證，任何人都能派車）"/>
+  <arg name="port" default="8000" description="HTTP 埠"/>
+  <arg name="web_dir" default="/web/dist" description="建置好的網頁（npm run build 的輸出）"/>
+  <arg name="use_sim_time" default="false" description="模擬時 true：判斷位置是否過期要用 /clock"/>
+
+  <!-- use_sim_time 用 ros_args（程序層級），和車子系統的 launch 一致 -->
+  <node pkg="amr_server" exec="server" name="amr_server" output="screen"
+        ros_args="-p use_sim_time:=$(var use_sim_time)">
+    <param name="robots" value="$(var robots)" type="str"/>
+    <param name="host" value="$(var host)" type="str"/>
+    <param name="port" value="$(var port)"/>
+    <param name="web_dir" value="$(var web_dir)" type="str"/>
+  </node>
+</launch>
