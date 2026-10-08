@@ -4,7 +4,7 @@
 
 ## 1. 地圖改寫核心
 
-- [ ] 1.1 （筆記 25）新增 `amr_navigation/amr_navigation/map_origin.py`（D1、D4）與 pytest（D6 純 Python 部分）：先寫測試確認失敗，再實作。驗證：`env -i` 下 pytest 通過
+- [x] 1.1 （筆記 25）新增 `amr_navigation/amr_navigation/map_origin.py`（D1、D4）與 pytest（D6 純 Python 部分）：先寫測試確認失敗，再實作。驗證：`env -i` 下 pytest 通過
 - [ ] 1.2 （筆記 25）新增 `ros_ws/src/amr_interfaces`（`SetMapOrigin.srv`）與 `amr_navigation` 的 `map_origin_server` 節點（console script，參數 `maps_dir`）；測試服務成功與失敗回報；套件邊界測試涵蓋新套件。驗證：`colcon build` 成功、`ros2 interface show amr_interfaces/srv/SetMapOrigin` 正確、服務測試通過
 
 ## 2. 地圖原點 UI
