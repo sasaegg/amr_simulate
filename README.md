@@ -2,7 +2,7 @@
 
 ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫場景、一台帶 2D 光達與 IMU 的差速車，世界與車子系統分開執行——車子系統以「硬體模式」切換虛擬（Gazebo）或真實驅動，之後的 SLAM、導航、派車都建立在同一套車子系統上。
 
-子專案 1（本 repo 目前的範圍）：模擬環境。規格與設計見 [`openspec/changes/add-sim-environment/`](openspec/changes/add-sim-environment/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
+子專案 1（本 repo 目前的範圍）：模擬環境。規格見 [`openspec/specs/`](openspec/specs/)，設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-sim-environment/`](openspec/changes/archive/2026-10-08-add-sim-environment/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
 
 ## 架構
 
