@@ -5,6 +5,11 @@ Panels:
     Name: Tool Properties
   - Class: rviz_common/Views
     Name: Views
+  # 建圖面板（amr_rviz_plugins）：輸入地圖名稱、按鈕存圖、顯示建圖狀態
+  - Class: amr_rviz_plugins/MappingPanel
+    Name: AMR 建圖
+    robot_id: amr1
+    map_name: warehouse_small
 Visualization Manager:
   Class: ""
   Displays:

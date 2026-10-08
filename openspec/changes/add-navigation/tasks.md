@@ -37,7 +37,7 @@
 ## 6. 建圖面板（RViz 外掛）
 
 - [x] 6.1 （筆記 22）`mapping.launch.xml` 加入 Nav2 的 `map_saver_server`（節點 `map_saver`，namespace `<id>`）與 `lifecycle_manager_mapping`，提供 `/<id>/map_saver/save_map`（nav2_msgs/SaveMap）；pytest：lifecycle 管理完整、use_sim_time 以 ros_args 設定；建圖冒煙測試新增「呼叫 save_map 服務存到暫存目錄，產生 `.pgm`／`.yaml`」。驗證：pytest 與 `launch_test test/test_mapping_smoke.py` 通過；建圖中 `ros2 service call /amr1/map_saver/save_map ...` 存出檔案
-- [ ] 6.2 （筆記 22）新套件 `ros_ws/src/amr_rviz_plugins`（ament_cmake、C++、Qt5、pluginlib、rviz_common；不依賴模擬套件）：RViz 面板 `amr_rviz_plugins/MappingPanel`（車輛 id、地圖名稱輸入；「存圖」按鈕＋覆蓋確認視窗，呼叫 `/<id>/map_saver/save_map` 存到 `/data/maps/<名稱>`；狀態顯示地圖尺寸、已知比例、最後更新時間與存圖結果；車輛 id 與地圖名稱存進 RViz 設定檔）；`navigate.rviz` 加入面板；新增 `launch/mapping_ui.launch.xml`（建圖＋載入 navigate.rviz 的 RViz）；pytest：plugin 描述檔、套件邊界、設定檔含面板。驗證：`colcon build` 無警告、pytest 通過、RViz 以 offscreen 方式載入時外掛可被 pluginlib 找到；畫面與按鈕操作併入 7.1 由使用者確認
+- [x] 6.2 （筆記 22）新套件 `ros_ws/src/amr_rviz_plugins`（ament_cmake、C++、Qt5、pluginlib、rviz_common；不依賴模擬套件）：RViz 面板 `amr_rviz_plugins/MappingPanel`（車輛 id、地圖名稱輸入；「存圖」按鈕＋覆蓋確認視窗，呼叫 `/<id>/map_saver/save_map` 存到 `/data/maps/<名稱>`；狀態顯示地圖尺寸、已知比例、最後更新時間與存圖結果；車輛 id 與地圖名稱存進 RViz 設定檔）；`navigate.rviz` 加入面板；新增 `amr_rviz_plugins/launch/mapping_ui.launch.xml`（建圖＋載入 navigate.rviz 的 RViz；放在操作員工具套件，車上系統不依賴 RViz）；pytest：plugin 描述檔、套件邊界、設定檔含面板。驗證：`colcon build` 無警告、pytest 與 gtest（pluginlib 實際載入建立面板）通過；在容器內暫裝 Xvfb 以軟體渲染開 RViz，截圖確認面板顯示與狀態更新、以 xdotool 按「存圖」→ 確認視窗 → 存出檔案；實機畫面與按鈕操作併入 7.1 由使用者確認
 - [ ] 6.3 （筆記 22）README「建圖與存圖」改為以 `mapping_ui.launch.xml` 與面板操作為主（指令存圖保留為替代方式）；更新開發摘要。驗證：照 README 執行 `mapping_ui.launch.xml` 啟動成功
 
 ## 7. 整體驗收

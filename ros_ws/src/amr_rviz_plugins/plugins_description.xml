@@ -1,0 +1,8 @@
+<!-- pluginlib：讓 RViz 找到這個面板（Panels → Add New Panel → amr_rviz_plugins/MappingPanel） -->
+<library path="amr_rviz_plugins">
+  <class name="amr_rviz_plugins/MappingPanel"
+         type="amr_rviz_plugins::MappingPanel"
+         base_class_type="rviz_common::Panel">
+    <description>AMR 建圖：輸入地圖名稱、按鈕存圖（呼叫 /ID/map_saver/save_map），顯示建圖狀態。</description>
+  </class>
+</library>
