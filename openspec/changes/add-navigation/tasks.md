@@ -6,7 +6,7 @@
 
 ## 1. 套件骨架與執行資料目錄
 
-- [ ] 1.1 （筆記 15）建立 `ros_ws/src/amr_navigation`（ament_python）：package.xml 列 `slam_toolbox`、`nav2_map_server`、`nav2_amcl`、`nav2_lifecycle_manager`、`nav2_planner`、`nav2_navfn_planner`、`nav2_controller`、`nav2_dwb_controller`、`nav2_smoother`、`nav2_behaviors`、`nav2_bt_navigator`、`nav2_waypoint_follower`、`nav2_velocity_smoother`、`launch`、`launch_ros`、`launch_xml`；setup.py 安裝 `launch/*.launch.xml` 與 `config/*`；`test/test_package_boundary.py`（package.xml 與 launch 不含 `ros_gz*`、`amr_hw_sim`、`amr_worlds`）。驗證：`colcon build` 成功、`ros2 pkg prefix amr_navigation` 找得到、`env -i` 下 pytest 通過
+- [x] 1.1 （筆記 15）建立 `ros_ws/src/amr_navigation`（ament_python）：package.xml 列 `slam_toolbox`、`nav2_map_server`、`nav2_amcl`、`nav2_lifecycle_manager`、`nav2_planner`、`nav2_navfn_planner`、`nav2_controller`、`nav2_dwb_controller`、`nav2_smoother`、`nav2_behaviors`、`nav2_bt_navigator`、`nav2_waypoint_follower`、`nav2_velocity_smoother`、`launch`、`launch_ros`、`launch_xml`；setup.py 安裝 `launch/*.launch.xml` 與 `config/*`；`test/test_package_boundary.py`（package.xml 與 launch 不含 `ros_gz*`、`amr_hw_sim`、`amr_worlds`）。驗證：`colcon build` 成功、`ros2 pkg prefix amr_navigation` 找得到、`env -i` 下 pytest 通過
 - [ ] 1.2 （筆記 15）驗證 design D3 的參數代換：以最小的 launch 啟動 `planner_server`（namespace `amr1`）並以 `<param from=... allow_substs="true"/>` 載入鍵為 `/$(var robot_id)/planner_server:`、`/$(var robot_id)/global_costmap/global_costmap:` 的參數檔。驗證：`ros2 param get /amr1/global_costmap/global_costmap robot_base_frame` 為 `amr1/base_footprint`；結果寫入筆記；若無效改用 D3 退路並更新 design.md
 - [ ] 1.3 （筆記 15）建立 `data/maps/.gitkeep`；compose 的 robot service 加 `../../data:/data`；`up_gpu.sh` 重建容器。驗證：robot 容器 `touch /data/maps/test` 後主機 `data/maps/test` 擁有者為使用者（驗證後刪除）；sim 容器沒有 `/data`；`docker compose config -q` 通過
 
