@@ -124,4 +124,7 @@ A：ABC 要求實作類別明確繼承；Protocol 是結構型別，只要方法
 
 - **停止要 5 秒、而且崩潰（`terminate called without an active exception`，exit −6）**：`finally` 裡 `executor.shutdown()` 後沒等 spin 執行緒結束就讓程序退出；daemon 執行緒還在 rclpy 的 C++ 程式碼裡，直譯器結束時 C++ 的 `std::terminate` 被呼叫。ros2 launch 等不到程序結束，5 秒後才送 SIGTERM。加上 `spin_thread.join(timeout=2.0)` 後：0.3 秒、結束碼 0。教訓：daemon 執行緒「程序結束時自動被殺」對純 Python 沒事，對跑著 C 擴充的執行緒很危險。
 
-- **pip 裝的 anyio 弄壞了整個映像的 pytest**：anyio 會自動註冊 pytest 外掛（`pytest11` entry point），外掛 import `_pytest.scope`，那是 pytest 7 才有的；apt 的 pytest 是 6.2，結果**任何** pytest 一啟動就崩潰——連既有套件的 `colcon test` 都會壞。解法：Dockerfile 加 `ENV PYTEST_ADDOPTS="-p no:anyio"` 停用這個外掛（我們用不到）。教訓：pip 裝套件可能帶進「外掛」這種隱形的副作用，裝完要跑一次既有的測試。
+- **pip 裝的 anyio 弄壞了整個映像的 pytest**：anyio 在 `entry_points.txt` 的 `[pytest11]` 段註冊了 pytest 外掛，外掛 import `_pytest.scope`，那是 pytest 7 才有的；apt 的 pytest 是 6.2，結果**任何** pytest 一啟動就崩潰——連既有套件的 `colcon test` 都會壞。
+  - 第一版解法 `ENV PYTEST_ADDOPTS="-p no:anyio"`：直接跑 pytest 有效，但 **`colcon test` 會用自己的參數覆寫 `PYTEST_ADDOPTS`**（colcon_core 的 pytest 任務），結果整個 `colcon test` 5 個套件都 error。
+  - 最終解法：Dockerfile 在 pip 之後刪掉 anyio 的 `entry_points.txt`（裡面只有 `[pytest11]` 這一段），pytest 就不會自動載入它。
+  - 教訓：pip 裝套件可能帶進「外掛」這種隱形副作用；裝完要跑一次**完整的** `colcon test`，不能只跑新套件。

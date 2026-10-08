@@ -33,9 +33,13 @@ RUN pip install --no-cache-dir \
         websockets==16.1.1 \
         httpx==0.28.1
 
-# 上面的 anyio（starlette 的相依）會自動註冊一個 pytest 外掛，它需要 pytest 7 以上；
-# apt 的 pytest 是 6.2，載入外掛時就崩潰，連其他套件的 colcon test 也一起壞掉。我們不需要這個外掛，停用它。
-ENV PYTEST_ADDOPTS="-p no:anyio"
+# 上面的 anyio（starlette 的相依）會在 entry_points.txt 的 [pytest11] 段註冊一個 pytest 外掛，它需要 pytest 7 以上；
+# apt 的 pytest 是 6.2，載入外掛時就崩潰，連其他套件的 colcon test 也一起壞掉。我們不需要這個外掛：
+# 把註冊刪掉（這個檔案只有這一段），pytest 就不會自動載入它。
+# 不用 PYTEST_ADDOPTS="-p no:anyio"：colcon test 會用自己的參數覆寫這個環境變數。
+RUN f=$(echo /usr/local/lib/python3.10/dist-packages/anyio-*.dist-info/entry_points.txt) \
+    && grep -q '^\[pytest11\]' "$f" \
+    && rm "$f"
 
 # 前端（web/）建置與開發用 Node.js 24 LTS：Ubuntu 22.04 apt 的 Node 是 12，Vite 需要 18 以上。
 # 從 nodejs.org 下載官方 tarball，SHA256 寫死在這裡比對（版本與雜湊取自官方 SHASUMS256.txt），下載內容被換掉就會建置失敗。

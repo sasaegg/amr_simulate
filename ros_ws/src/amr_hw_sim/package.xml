@@ -22,6 +22,7 @@
   <test_depend>amr_bringup</test_depend>
   <test_depend>amr_description</test_depend>
   <test_depend>amr_navigation</test_depend>
+  <test_depend>amr_server</test_depend>
   <test_depend>amr_worlds</test_depend>
   <test_depend>geometry_msgs</test_depend>
   <test_depend>launch_testing</test_depend>

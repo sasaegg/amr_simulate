@@ -55,3 +55,4 @@
 | 27 | [後端骨架與 rclpy／FastAPI 共存](27-後端骨架與rclpy-FastAPI共存.md) | 2.1、3.2 |
 | 28 | [RobotBridge：TF 查位置、action client 狀態機](28-RobotBridge.md) | 3.1 |
 | 29 | [REST 與 WebSocket（FastAPI）](29-REST與WebSocket.md) | 2.2 |
+| 32 | [端到端冒煙測試與 README](32-端到端冒煙測試與README.md) | 3.3、4.3 |
