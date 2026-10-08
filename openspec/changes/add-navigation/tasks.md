@@ -32,7 +32,7 @@
 ## 5. 中控整合（sim-runtime）
 
 - [x] 5.1 （筆記 21）`robot.launch.xml` 新增 `mode`（`none`／`mapping`／`navigation`，預設 `none`）與 `map`，在 `is_sim` group 內依 mode include 對應 launch（傳 `robot_id`、`use_sim_time:=$(var is_sim)`、`map`）；`mode` 不合法時 `<log>` + `<shutdown>`；更新 `test_robot_launch.py`（`mode:=foo` 顯示訊息且不啟動節點）與 `test_package_boundary.py`（`amr_navigation` 不在 sim 判斷之外被視為模擬套件）。驗證：pytest 通過；`mode:=mapping`、`mode:=navigation` 一行啟動可建圖／導航；未指定 mode 時沒有 `map` 座標系；`mode:=none` 執行中另外啟動建圖、停止後再啟動導航，車輛留在原地未被移回出生點
-- [ ] 5.2 （筆記 21）README 啟動流程與參數表加入 `mode`、`map`、`/data`；`docs/開發摘要.md` 更新子專案 2 狀態與套件配置。驗證：README 的指令都實際執行過；`colcon test` 全部通過
+- [x] 5.2 （筆記 21）README 啟動流程與參數表加入 `mode`、`map`、`/data`；`docs/開發摘要.md` 更新子專案 2 狀態與套件配置。驗證：README 的指令都實際執行過；`colcon test` 全部通過
 
 ## 6. 整體驗收
 

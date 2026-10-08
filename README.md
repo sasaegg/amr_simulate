@@ -2,7 +2,10 @@
 
 ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫場景、一台帶 2D 光達與 IMU 的差速車，世界與車子系統分開執行——車子系統以「硬體模式」切換虛擬（Gazebo）或真實驅動，之後的 SLAM、導航、派車都建立在同一套車子系統上。
 
-子專案 1（本 repo 目前的範圍）：模擬環境。規格見 [`openspec/specs/`](openspec/specs/)，設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-sim-environment/`](openspec/changes/archive/2026-10-08-add-sim-environment/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
+- 子專案 1：模擬環境（完成）。設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-sim-environment/`](openspec/changes/archive/2026-10-08-add-sim-environment/)。
+- 子專案 2：建圖、定位、導航（進行中，change [`add-navigation`](openspec/changes/add-navigation/)）。
+
+規格見 [`openspec/specs/`](openspec/specs/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
 
 ## 架構
 
@@ -10,6 +13,8 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 ┌──────────────── robot 容器：車子系統（之後部署到真車）────────────────┐   ┌──── sim 容器 ────┐
 │ robot.launch.xml（中控）  hardware:=sim | real                         │   │ world.launch.xml │
 │  ├ robot_state_publisher                                               │   │  ├ Gazebo 世界   │
+│  ├ mode:=mapping    → 建圖（slam_toolbox）                             │   │                  │
+│  ├ mode:=navigation → 定位與導航（map_server + AMCL + Nav2）           │   │                  │
 │  └ hardware: sim → 虛擬驅動（amr_hw_sim）                               │◀─▶│  └ /clock        │
 │       ├ 虛擬底盤：把車放進世界、cmd_vel 逾時停車、odom／TF／joint_states │   │                  │
 │       ├ 虛擬光達：/amr1/scan（Gazebo 依車輛實際位置計算）                │   │  真車上不存在     │
@@ -59,6 +64,16 @@ ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1
 
 Gazebo 視窗出現倉庫，車子系統啟動後車輛出現在 (1, 1)。
 
+要一起帶起建圖或導航時加 `mode`（也可以之後另外啟動，見「建圖與存圖」「定位與導航」）：
+
+```bash
+ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=mapping
+ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=navigation map:=warehouse_small
+```
+
+- `mode` 一起帶起：一行指令；但切換模式要重啟整個車子系統（模擬時車子會被移回出生點）。
+- 另外啟動 `mapping.launch.xml`／`navigation.launch.xml`（記得加 `use_sim_time:=true`）：驅動不用重啟，車子留在原地。
+
 - 容器啟動時若工作區還沒建置過（沒有 `ros_ws/install`），entrypoint 會自動 `colcon build`；之後修改 Python／launch／YAML 不需要重新 build，**新增檔案**（新的套件、場景、world）才要在容器內 `cd /ros_ws && colcon build --symlink-install`。
 - 停止：各自在 launch 的終端機按 Ctrl+C（或直接關掉 Gazebo 視窗，世界的 launch 會跟著結束）。停止車子系統時車輛會停下並留在世界中；再次啟動會移回出生點。
 - 收工：`cd docker/amr_sim && docker compose down`。
@@ -84,6 +99,10 @@ launch 檔用 XML 寫（和 ROS 1 的 `<arg>` 相同概念），設定全部是 
 | `amr_bringup robot.launch.xml` | **`hardware`：`sim` 或 `real`（必填）** | 無 |
 | | `robot_id`（namespace 與 TF 前綴） | `amr1` |
 | | `x`、`y`、`yaw`：模擬時車輛放進世界的位置（公尺、弧度） | `0` |
+| | `mode`：`none`、`mapping`（建圖）、`navigation`（定位與導航） | `none` |
+| | `map`：`mode:=navigation` 時載入的地圖（`data/maps/<map>.yaml`） | `warehouse_small` |
+| `amr_navigation mapping.launch.xml` | `robot_id`、`use_sim_time`（模擬時要 `true`） | `amr1`、`false` |
+| `amr_navigation navigation.launch.xml` | `robot_id`、`use_sim_time`、`map` | `amr1`、`false`、`warehouse_small` |
 
 ```bash
 ros2 launch amr_worlds world.launch.xml world:=warehouse_small_edited
@@ -92,6 +111,8 @@ ros2 launch amr_bringup robot.launch.xml --show-args     # 列出所有參數與
 ```
 
 兩個容器共用的 ROS 環境變數在 `docker/amr_sim/config/ros.env`：`ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up_gpu.sh` 重建容器）。
+
+執行時產生的資料（地圖）在專案的 `data/`，掛載到 robot 容器的 `/data`（可寫，檔案在主機上屬於你）；`data/maps/` 納入 git。
 
 ## 場景（Gazebo world）
 
