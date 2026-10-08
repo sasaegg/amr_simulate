@@ -12,9 +12,9 @@
 
   mode（預設 none）：同時帶起的功能
     none        只有驅動與共用節點
-    mapping     建圖（amr_navigation/mapping.launch.xml）
-    navigation  定位與導航（amr_navigation/navigation.launch.xml，地圖 map:=NAME）
-  建圖與導航也能在中控執行中單獨啟動／停止（不用重啟驅動），見 README。
+    navigation  定位與導航（amr_navigation/navigation.launch.xml，地圖 map:=NAME）——平常運作、開機一行帶起
+  建圖不在這裡：建圖一定有人操作（開車、看 RViz、按存圖），用 amr_rviz_plugins/mapping_ui.launch.xml
+  在中控執行中另外啟動。導航也能另外啟動／停止（不用重啟驅動），見 README。
 -->
 <launch>
   <arg name="hardware" description="必填：sim 或 real"/>
@@ -22,14 +22,13 @@
   <arg name="x" default="0.0" description="hardware=sim：車輛放進世界的位置 x（公尺）"/>
   <arg name="y" default="0.0" description="hardware=sim：位置 y（公尺）"/>
   <arg name="yaw" default="0.0" description="hardware=sim：朝向（弧度）"/>
-  <arg name="mode" default="none" description="none、mapping 或 navigation"/>
+  <arg name="mode" default="none" description="none 或 navigation（建圖用 mapping_ui.launch.xml）"/>
   <arg name="map" default="warehouse_small" description="mode=navigation：地圖名稱（/data/maps/MAP.yaml）"/>
 
   <let name="is_sim" value="$(equals $(var hardware) sim)"/>
   <let name="is_real" value="$(equals $(var hardware) real)"/>
-  <let name="is_mapping" value="$(equals $(var mode) mapping)"/>
   <let name="is_navigation" value="$(equals $(var mode) navigation)"/>
-  <let name="mode_ok" value="$(or $(equals $(var mode) none) $(or $(var is_mapping) $(var is_navigation)))"/>
+  <let name="mode_ok" value="$(or $(equals $(var mode) none) $(var is_navigation))"/>
   <!-- 全部檢查都通過才啟動節點：hardware=sim 且 mode 合法 -->
   <let name="run" value="$(and $(var is_sim) $(var mode_ok))"/>
 
@@ -43,7 +42,7 @@
     <shutdown reason="hardware 不正確"/>
   </group>
   <group unless="$(var mode_ok)">
-    <log message="mode 必須是 none、mapping 或 navigation，收到 '$(var mode)'"/>
+    <log message="mode 必須是 none 或 navigation，收到 '$(var mode)'（建圖請用 ros2 launch amr_rviz_plugins mapping_ui.launch.xml）"/>
     <shutdown reason="mode 不正確"/>
   </group>
 
@@ -67,11 +66,7 @@
       <arg name="yaw" value="$(var yaw)"/>
     </include>
 
-    <!-- ==== 功能：依 mode 帶起建圖或導航（與硬體無關，只用車輛標準介面） ==== -->
-    <include file="$(find-pkg-share amr_navigation)/launch/mapping.launch.xml" if="$(var is_mapping)">
-      <arg name="robot_id" value="$(var robot_id)"/>
-      <arg name="use_sim_time" value="$(var is_sim)"/>
-    </include>
+    <!-- ==== 功能：mode=navigation → 定位與導航（與硬體無關，只用車輛標準介面） ==== -->
     <include file="$(find-pkg-share amr_navigation)/launch/navigation.launch.xml" if="$(var is_navigation)">
       <arg name="robot_id" value="$(var robot_id)"/>
       <arg name="use_sim_time" value="$(var is_sim)"/>

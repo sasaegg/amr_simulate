@@ -13,7 +13,6 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 ┌──────────────── robot 容器：車子系統（之後部署到真車）────────────────┐   ┌──── sim 容器 ────┐
 │ robot.launch.xml（中控）  hardware:=sim | real                         │   │ world.launch.xml │
 │  ├ robot_state_publisher                                               │   │  ├ Gazebo 世界   │
-│  ├ mode:=mapping    → 建圖（slam_toolbox）                             │   │                  │
 │  ├ mode:=navigation → 定位與導航（map_server + AMCL + Nav2）           │   │                  │
 │  └ hardware: sim → 虛擬驅動（amr_hw_sim）                               │◀─▶│  └ /clock        │
 │       ├ 虛擬底盤：把車放進世界、cmd_vel 逾時停車、odom／TF／joint_states │   │                  │
@@ -65,15 +64,14 @@ ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1
 
 Gazebo 視窗出現倉庫，車子系統啟動後車輛出現在 (1, 1)。
 
-要一起帶起建圖或導航時加 `mode`（也可以之後另外啟動，見「建圖與存圖」「定位與導航」）：
+- **建圖**：車子系統執行中另外開 `mapping_ui.launch.xml`（見「建圖與存圖」）；建圖一定有人操作，所以不放進中控。
+- **導航**（平常運作）：可以一行一起帶起，或之後另外啟動（見「定位與導航」）：
 
 ```bash
-ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=mapping
 ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1 mode:=navigation map:=warehouse_small
 ```
 
-- `mode` 一起帶起：一行指令；但切換模式要重啟整個車子系統（模擬時車子會被移回出生點）。
-- 另外啟動 `mapping.launch.xml`／`navigation.launch.xml`（記得加 `use_sim_time:=true`）：驅動不用重啟，車子留在原地。
+`mode:=navigation` 一行就好，但要換成建圖時得重啟整個車子系統（模擬時車子會被移回出生點）；另外啟動 `navigation.launch.xml use_sim_time:=true` 則驅動不用重啟、車子留在原地。
 
 - 容器啟動時若工作區還沒建置過（沒有 `ros_ws/install`），entrypoint 會自動 `colcon build`；之後修改 Python／launch／YAML 不需要重新 build，**新增檔案**（新的套件、場景、world）才要在容器內 `cd /ros_ws && colcon build --symlink-install`。
 - 停止：各自在 launch 的終端機按 Ctrl+C（或直接關掉 Gazebo 視窗，世界的 launch 會跟著結束）。停止車子系統時車輛會停下並留在世界中；再次啟動會移回出生點。
@@ -100,7 +98,7 @@ launch 檔用 XML 寫（和 ROS 1 的 `<arg>` 相同概念），設定全部是 
 | `amr_bringup robot.launch.xml` | **`hardware`：`sim` 或 `real`（必填）** | 無 |
 | | `robot_id`（namespace 與 TF 前綴） | `amr1` |
 | | `x`、`y`、`yaw`：模擬時車輛放進世界的位置（公尺、弧度） | `0` |
-| | `mode`：`none`、`mapping`（建圖）、`navigation`（定位與導航） | `none` |
+| | `mode`：`none`、`navigation`（定位與導航；建圖用 `mapping_ui.launch.xml`） | `none` |
 | | `map`：`mode:=navigation` 時載入的地圖（`docker/amr_sim/data/maps/<map>.yaml`） | `warehouse_small` |
 | `amr_navigation mapping.launch.xml` | `robot_id`、`use_sim_time`（模擬時要 `true`） | `amr1`、`false` |
 | `amr_navigation navigation.launch.xml` | `robot_id`、`use_sim_time`、`map` | `amr1`、`false`、`warehouse_small` |
@@ -178,7 +176,7 @@ RViz 左下角的 **「AMR 建圖」面板**：
 不用 RViz 的替代方式：
 
 ```bash
-ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true     # 只建圖（或 robot.launch.xml mode:=mapping）
+ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true     # 只建圖（不開 RViz）
 ros2 run nav2_map_server map_saver_cli -f /data/maps/warehouse_small --ros-args -r map:=/amr1/map -p use_sim_time:=true
 ```
 

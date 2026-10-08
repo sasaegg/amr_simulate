@@ -36,8 +36,10 @@ def test_rejects_unknown_hardware(value):
     assert 'robot_state_publisher' not in output
 
 
-@pytest.mark.parametrize('value', ['foo', 'Mapping', 'nav'])
+@pytest.mark.parametrize('value', ['foo', 'Navigation', 'nav', 'mapping'])
 def test_rejects_unknown_mode(value):
+    # mapping 也拒絕：建圖一定有人操作，用 mapping_ui.launch.xml（避免和它同時開兩份建圖）
     code, output = launch('hardware:=sim', f'mode:={value}')
-    assert f"mode 必須是 none、mapping 或 navigation，收到 '{value}'" in output
+    assert f"mode 必須是 none 或 navigation，收到 '{value}'" in output
+    assert 'mapping_ui.launch.xml' in output
     assert 'robot_state_publisher' not in output

@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: 車子系統的功能模式
-車子系統 SHALL 依啟動參數 `mode` 決定同時帶起的功能：`none`（預設，只有驅動與共用節點）、`mapping`（建圖）、`navigation`（定位與導航）。不合法的值 SHALL 顯示訊息（含收到的值與可用值）並結束，不啟動任何節點。建圖與導航 SHALL 也能在車子系統執行中單獨啟動與停止，不需重啟驅動。
+車子系統 SHALL 依啟動參數 `mode` 決定同時帶起的功能：`none`（預設，只有驅動與共用節點）、`navigation`（定位與導航）。建圖一定有人操作，SHALL 不由 `mode` 帶起，而是在車子系統執行中另外啟動（建圖 UI）。不合法的值（含 `mapping`）SHALL 顯示訊息（含收到的值、可用值與建圖的啟動方式）並結束，不啟動任何節點。建圖與導航 SHALL 能在車子系統執行中單獨啟動與停止，不需重啟驅動。
 
 #### Scenario: 預設不帶建圖或導航
 - **WHEN** 以 `hardware:=sim` 啟動車子系統，沒有指定 `mode`
@@ -15,7 +15,11 @@
 
 #### Scenario: 不合法的模式
 - **WHEN** 以 `hardware:=sim mode:=foo` 啟動車子系統
-- **THEN** 訊息指出 `mode` 必須是 `none`、`mapping` 或 `navigation` 並顯示收到的值，沒有啟動任何節點即結束
+- **THEN** 訊息指出 `mode` 必須是 `none` 或 `navigation` 並顯示收到的值，沒有啟動任何節點即結束
+
+#### Scenario: 建圖不經由 mode
+- **WHEN** 以 `hardware:=sim mode:=mapping` 啟動車子系統
+- **THEN** 訊息指出 `mode` 不接受 `mapping` 並提示以建圖 UI 啟動建圖，沒有啟動任何節點即結束
 
 #### Scenario: 單獨切換建圖與導航
 - **WHEN** 車子系統以 `mode:=none` 執行中，使用者另外啟動建圖，之後停止建圖再另外啟動導航

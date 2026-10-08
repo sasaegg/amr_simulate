@@ -4,7 +4,7 @@
 
   用法（robot 容器內，車子系統已在執行）：
     ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true
-  也可由中控一起帶起：robot.launch.xml hardware:=sim mode:=mapping
+  通常用 amr_rviz_plugins/mapping_ui.launch.xml（建圖 + RViz 建圖面板）一起開
 
   存圖：RViz 建圖面板的「存圖」按鈕（呼叫 /ID/map_saver/save_map），或 map_saver_cli 指令（見 README）
 -->

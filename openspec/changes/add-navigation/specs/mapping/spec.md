@@ -39,7 +39,7 @@
 建圖 SHALL 只使用車輛的標準介面（`/<id>/scan`、`/<id>/odom`、TF），在模擬與真車上以相同方式執行；模擬時 SHALL 使用模擬時間。
 
 #### Scenario: 模擬模式下建圖
-- **WHEN** 以 `hardware:=sim mode:=mapping` 啟動車子系統
+- **WHEN** 以 `hardware:=sim` 啟動車子系統後，以 `use_sim_time:=true` 另外啟動建圖
 - **THEN** 建圖節點使用模擬時間，且 robot 側沒有啟動任何建圖專用的模擬節點
 
 ### Requirement: 存圖服務

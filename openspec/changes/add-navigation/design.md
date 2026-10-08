@@ -31,7 +31,8 @@
 ### D2：啟動方式——獨立 launch，中控以 `mode` include
 
 - `mapping.launch.xml`、`navigation.launch.xml` 參數：`robot_id`（預設 `amr1`）、`use_sim_time`（預設 `false`）；導航另有 `map`（預設 `warehouse_small`）。
-- `robot.launch.xml` 新增 `mode`（`none`／`mapping`／`navigation`，預設 `none`）與 `map`；在 `is_sim` group 內依 `mode` 以 `if="$(equals $(var mode) mapping)"` include 對應 launch，傳入 `robot_id`、`use_sim_time:=$(var is_sim)`、`map`。不合法的 `mode` 與 `hardware` 相同處理：`<log>` + `<shutdown>`，不啟動節點。
+- `robot.launch.xml` 新增 `mode`（`none`／`navigation`，預設 `none`）與 `map`；在 `run` group 內以 `if="$(var is_navigation)"` include 導航 launch，傳入 `robot_id`、`use_sim_time:=$(var is_sim)`、`map`。不合法的 `mode` 與 `hardware` 相同處理：`<log>` + `<shutdown>`，不啟動節點。
+- **建圖不由 `mode` 帶起**（2026-10-08 使用者決定，原本有 `mode:=mapping`）：建圖一定有人操作（開車、看 RViz、按存圖），一律用 `mapping_ui.launch.xml` 在中控執行中另外啟動；留著 `mode:=mapping` 會出現和 mapping_ui 同時開兩份建圖（兩個 slam_toolbox 都發 `map → odom`）的陷阱。導航是平常運作，保留 `mode:=navigation` 讓真車開機一行帶起。
 - 單獨啟動時使用者自己加 `use_sim_time:=true`（README 寫明）。
 - 替代：只用 `mode`（切換要重啟驅動，模擬時車被移回出生點）；只用獨立 launch（正式使用要開多個終端機）。兩者都支援（使用者選定）。
 
@@ -99,7 +100,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 - 純解析（無 ROS）：`amr_navigation` 的 package.xml 與 launch 不含模擬套件；參數檔所有 frame 為 `map` 或 `$(var robot_id)/…`；footprint、`max_laser_range`、速度／加速度上限與 xacro 的一致性（解析 xacro property，不需 xacro 執行檔）；RViz 設定檔工具 topic 帶 namespace。
 - 實際執行 launch（需 ROS）：`mode:=foo` 顯示訊息且不啟動節點。
 - 整合冒煙測試（launch_testing，放 `amr_hw_sim/test/`，因為需要世界）：
-  - `test_mapping_smoke.py`：world headless + `robot.launch.xml hardware:=sim mode:=mapping x:=1 y:=1` → 30 s 內 `/amr1/map`、TF `map → amr1/base_footprint`、`map → amr1/odom` 單一發布者；送 cmd_vel 行駛後已知格數增加；以 `map_saver_cli` 存到暫存目錄，檔案存在。
+  - `test_mapping_smoke.py`：world headless + `robot.launch.xml hardware:=sim x:=1 y:=1` + `mapping.launch.xml` → 30 s 內 `/amr1/map`、TF `map → amr1/base_footprint`、`map → amr1/odom` 單一發布者；送 cmd_vel 行駛後已知格數增加；以 `map_saver_cli` 存到暫存目錄，檔案存在。
   - `test_navigation_smoke.py`：`mode:=navigation map:=warehouse_small` → 發布 `/amr1/initialpose` (1, 1, 0) → 10 s 內 `map → amr1/base_footprint` 在 0.3 m 內 → `navigate_to_pose` action 送空曠處目標 → 90 s 內 SUCCEEDED，位置誤差 < 0.3 m；送牆內目標 → 回報失敗。
 - 冒煙測試可用不同 `ROS_DOMAIN_ID`／`IGN_PARTITION` 執行，避免與使用者開著的模擬互相干擾（子專案 1 筆記 14）。
 - 手動驗收（使用者）：teleop 建圖時 RViz 看地圖長出來、存圖並檢視 `.pgm`、導航點目標、途中放箱子避障、單獨切換建圖／導航時車留在原地。
