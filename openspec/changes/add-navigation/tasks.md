@@ -16,7 +16,7 @@
 - [x] 2.2 （筆記 16）撰寫 `config/navigate.rviz`（D7：Fixed Frame `map`；Map、LaserScan、TF、RobotModel（TF Prefix `amr1`）、全域／局部 costmap、`/amr1/plan`；2D Pose Estimate → `/amr1/initialpose`、2D Goal Pose → `/amr1/goal_pose`）；pytest 解析設定檔檢查工具 topic 帶 namespace、Map 的 Durability 為 Transient Local。驗證：pytest 通過；`rviz2 -d $(ros2 pkg prefix amr_navigation)/share/amr_navigation/config/navigate.rviz` 建圖中看得到地圖長出來（RViz 需要螢幕，畫面確認併入 2.3 由使用者操作）
 - [ ] 2.3 （筆記 17）使用者以 teleop 沿倉庫繞一圈並回到起點建圖，以 `map_saver_cli` 存成 `data/maps/warehouse_small.{pgm,yaml}` 並 commit；筆記說明 `.pgm`／`.yaml` 每個欄位（resolution、origin、negate、occupied_thresh、free_thresh、mode）、佔據格的三種值、閉環。驗證：兩個檔案存在且擁有者為使用者；圖片檢視器打開 `.pgm` 看得到牆與貨架輪廓；`.yaml` 的 resolution 為 0.05
 - [x] 2.4 （筆記 16）撰寫 `amr_hw_sim/test/test_mapping_smoke.py`（launch_testing：world headless + `robot.launch.xml hardware:=sim x:=1 y:=1` + `mapping.launch.xml use_sim_time:=true`）：30 s 內收到 `/amr1/map` 且車周圍有佔據格、TF `map → amr1/base_footprint` 可查且 `map → amr1/odom` 單一發布者、送 cmd_vel 行駛後已知格數增加、`map_saver_cli` 存到暫存目錄產生 `.pgm` 與 `.yaml`；amr_hw_sim 的 package.xml 加對應 test_depend。驗證：`launch_test test/test_mapping_smoke.py` 全部通過、`colcon test` 全部通過
-- [ ] 2.5 （筆記 16）README 新增「建圖與存圖」：啟動、teleop 開法建議（慢速、沿牆、回起點）、RViz 設定檔、存圖指令（含 `-r map:=/amr1/map`、`use_sim_time`）、同名覆蓋提醒。驗證：照 README 指令從頭做一次可建圖並存圖
+- [x] 2.5 （筆記 16）README 新增「建圖與存圖」：啟動、teleop 開法建議（慢速、沿牆、回起點）、RViz 設定檔、存圖指令（含 `-r map:=/amr1/map`、`use_sim_time`）、同名覆蓋提醒。驗證：照 README 指令從頭做一次可建圖並存圖
 
 ## 3. 定位（navigation：載入地圖與 AMCL）
 
