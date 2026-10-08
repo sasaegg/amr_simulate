@@ -29,7 +29,8 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 | `amr_bringup` | 車子系統中控 `robot.launch.xml` | ✅ |
 | `amr_worlds` | 場景產生器、world、`world.launch.xml` | ❌ |
 | `amr_hw_sim` | 虛擬驅動 `sim_hardware.launch.xml`、冒煙測試 | ❌ |
-| `amr_navigation` | 建圖 `mapping.launch.xml`、導航 `navigation.launch.xml`、參數、RViz 設定檔 | ✅ |
+| `amr_navigation` | 建圖 `mapping.launch.xml`（含存圖服務）、導航 `navigation.launch.xml`、參數、RViz 設定檔 | ✅ |
+| `amr_rviz_plugins` | RViz「AMR 建圖」面板（按鈕存圖）、`mapping_ui.launch.xml` | 操作員電腦 |
 
 車輛對外介面（硬體介面）：`/amr1/cmd_vel`（輸入）、`/amr1/scan`、`/amr1/odom`、`/amr1/imu`、`/amr1/joint_states`、`/tf`（`amr1/odom → amr1/base_footprint`）、`/tf_static`；模擬時另有 `/clock`。所有 frame 帶 `amr1/` 前綴。
 
@@ -151,30 +152,37 @@ Gazebo 看光達光束：右上角 ⋮ → Visualize Lidar → Topic 選 `/amr1/
 建圖用 slam_toolbox：一邊用 teleop 開車，一邊把光達掃到的東西畫成 2D 佔據格地圖。地圖存在 `docker/amr_sim/data/maps/`（robot 容器的 `/data/maps`）。
 
 ```bash
-# 世界與車子系統已在執行（見「建置與啟動」）；robot 容器內另開 shell：
-ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true
-
-# 再開一個 shell：RViz（地圖、光達、車身都已設定好）
-rviz2 -d $(ros2 pkg prefix --share amr_navigation)/config/navigate.rviz
+# 世界與車子系統已在執行（見「建置與啟動」）；robot 容器內另開 shell：建圖 + RViz（含建圖面板）
+ros2 launch amr_rviz_plugins mapping_ui.launch.xml use_sim_time:=true
 
 # 再開一個 shell：teleop 開車
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/amr1/cmd_vel
 ```
+
+RViz 左下角的 **「AMR 建圖」面板**：
+- 狀態列顯示地圖尺寸、已知比例、最後更新時間——開到新區域時會跟著變。
+- 輸入**地圖名稱**，按 **「存圖」** → 確認視窗顯示完整路徑（`/data/maps/<名稱>.pgm`／`.yaml`）→ 按 Yes 存檔，面板顯示「已存」。建圖中隨時可以存，不需要停止。
+- **同名會覆蓋**（確認視窗會提醒），建新圖請換名字；`docker/amr_sim/data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
+- 地圖名稱只能用英數字、`_`、`-`。
+- 「存圖」按鈕是灰的：存圖服務 `/amr1/map_saver/save_map` 還沒就緒（建圖剛啟動，或建圖沒在跑）。
+- 建圖時 Global／Local Costmap 顯示警告是正常的：costmap 只有導航時才有。
+- 關掉 RViz 視窗，建圖也一起結束。
 
 開法建議：
 - **慢慢開**：teleop 按幾次 `z`（每次把速度上限降 10%，預設 0.5 m/s）降到 0.3 m/s 左右；開太快掃描比對容易失敗，地圖會扭曲。
 - **沿著牆繞一圈，最後回到起點**：回到看過的地方時 slam_toolbox 會「閉環」（loop closure），修正累積的誤差。
 - 從出生點 `x:=1 y:=1 yaw:=0` 開始建圖：`map` 座標系的原點就是開始建圖時車子的位置，repo 內的地圖都遵守這個慣例，所以「世界座標 = 地圖座標 + (1, 1)」。
 
-存圖（建圖中隨時可以存，不需要停止）：
+存出的檔案：`<名稱>.pgm`（灰階圖片：白＝空曠、黑＝障礙、灰＝未知）與 `<名稱>.yaml`（解析度、原點、門檻），格式見[筆記 17](docs/學習筆記/17-存圖與地圖格式.md)。
+
+不用 RViz 的替代方式：
 
 ```bash
+ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true     # 只建圖（或 robot.launch.xml mode:=mapping）
 ros2 run nav2_map_server map_saver_cli -f /data/maps/warehouse_small --ros-args -r map:=/amr1/map -p use_sim_time:=true
 ```
 
-- 產生 `docker/amr_sim/data/maps/warehouse_small.pgm`（灰階圖片：白＝空曠、黑＝障礙、灰＝未知）與 `warehouse_small.yaml`（解析度、原點、門檻）。
-- `-r map:=/amr1/map`：map_saver 預設訂閱 `/map`，地圖在 namespace 下。
-- **同名會直接覆蓋**，建新圖請換名字；`docker/amr_sim/data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
+`-r map:=/amr1/map`：map_saver 預設訂閱 `/map`，地圖在 namespace 下。
 
 ## 定位與導航
 
