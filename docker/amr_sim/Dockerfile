@@ -11,6 +11,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-cjk \
         mesa-utils \
+        python3-pip \
         python3-pytest \
         python3-yaml \
         ros-humble-nav2-bringup \
@@ -22,6 +23,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         x11-apps \
     && rm -rf /var/lib/apt/lists/*
+
+# 中控後端（amr_server）：FastAPI + uvicorn。apt 的 python3-fastapi 是 0.78（Pydantic v1），太舊，改用 pip 並釘死版本。
+# 不用 uvicorn[standard]：它會拉 PyYAML 等，和 apt 裝的版本衝突（pip 無法移除 apt 裝的套件）；WebSocket 只需要 websockets。
+# websockets 17 起需要 Python 3.11，映像是 3.10，所以用 16.x。httpx：FastAPI 測試用的 TestClient 需要。
+RUN pip install --no-cache-dir \
+        fastapi==0.142.4 \
+        uvicorn==0.54.0 \
+        websockets==16.1.1 \
+        httpx==0.28.1
+
+# 前端（web/）建置與開發用 Node.js 24 LTS：Ubuntu 22.04 apt 的 Node 是 12，Vite 需要 18 以上。
+# 從 nodejs.org 下載官方 tarball，SHA256 寫死在這裡比對（版本與雜湊取自官方 SHASUMS256.txt），下載內容被換掉就會建置失敗。
+ARG NODE_VERSION=24.21.0
+ARG NODE_SHA256=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+RUN curl -fsSLo /tmp/node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum -c - \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner \
+    && rm /tmp/node.tar.xz
 
 # 建立與主機相同 UID/GID 的使用者：掛載進來的 ros_ws 中產生的 build/、install/ 才會屬於主機使用者。
 # 預設 1000；compose 以 ${USER_UID:-1000} 傳入，docker/build.sh 會自動帶入 id -u / id -g。

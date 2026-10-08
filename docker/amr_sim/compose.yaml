@@ -1,8 +1,9 @@
 name: amr_sim
 
-# 兩個長駐容器，同一個映像：
-#   sim    世界（Gazebo）——真車上不存在，模擬時取代「真實世界」
-#   robot  車子系統（中控 robot.launch.py）——之後部署到真車上的就是這一個
+# 三個長駐容器，同一個映像：
+#   sim     世界（Gazebo）——真車上不存在，模擬時取代「真實世界」
+#   robot   車子系統（中控 robot.launch.xml）——之後部署到真車上的就是這一個
+#   server  中控（後端 amr_server + 網頁 web/）——管理所有車輛的中控電腦
 services:
   sim:
     image: amr-sim:humble
@@ -63,3 +64,17 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  server:
+    image: amr-sim:humble
+    command: ["sleep", "infinity"]
+
+    network_mode: host
+    # 和另外兩個容器一樣共用主機 IPC：Fast DDS 同主機走 shared memory
+    ipc: host
+    init: true
+    env_file: ./config/ros.env
+    # 不畫圖：不需要 GPU、DISPLAY、X11 socket；地圖從車子系統的 topic 取得，也不掛 /data
+    volumes:
+      - ../../ros_ws:/ros_ws
+      - ../../web:/web                       # 前端原始碼（npm run dev／build 在這裡執行）

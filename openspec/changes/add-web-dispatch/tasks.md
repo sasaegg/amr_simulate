@@ -6,7 +6,7 @@
 
 ## 1. server 容器與映像
 
-- [ ] 1.1 （筆記 26）Dockerfile 加 pip 的 `fastapi`、`uvicorn[standard]`、`httpx`（釘死當下穩定版）與 Node.js 24 LTS 官方 tarball（驗證 SHA256）（D1）；compose 新增 `server` service（不含 GPU、X11、`/data`，掛 `ros_ws` 與 `web`）；`up.sh` 接受 `server`、`exec.sh` 接受 `server`；`.gitignore` 加 `web/node_modules`、`web/dist`。驗證：`docker compose config -q` 通過；`up.sh` 參數錯誤仍顯示用法、非零結束；先以臨時標籤建置映像確認 `node --version` 為 v24、`python3 -c "import fastapi, uvicorn"` 成功
+- [x] 1.1 （筆記 26）Dockerfile 加 pip 的 `fastapi`、`uvicorn[standard]`、`httpx`（釘死當下穩定版）與 Node.js 24 LTS 官方 tarball（驗證 SHA256）（D1）；compose 新增 `server` service（不含 GPU、X11、`/data`，掛 `ros_ws` 與 `web`）；`up.sh` 接受 `server`、`exec.sh` 接受 `server`；`.gitignore` 加 `web/node_modules`、`web/dist`。驗證：`docker compose config -q` 通過；`up.sh` 參數錯誤仍顯示用法、非零結束；先以臨時標籤建置映像確認 `node --version` 為 v24、`python3 -c "import fastapi, uvicorn"` 成功
 - [ ] 1.2 （筆記 26）**使用者手動**重建映像並啟動三個容器（`up.sh gpu all --build`）。驗證：三個容器在執行；`server` 中 `ros2 topic list` 看得到世界的 `/clock`、`nvidia-smi`／`DISPLAY` 不存在；sim、robot 原有流程（世界、車子系統）照常
 
 ## 2. 後端核心（不需要 ROS 的部分）

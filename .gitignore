@@ -16,3 +16,7 @@ __pycache__/
 # 標地圖原點時的備份（只保留最近一次，不進版控）
 *.bak.pgm
 *.bak.yaml
+
+# 前端相依與建置產物（npm install／npm run build 產生）
+web/node_modules/
+web/dist/
