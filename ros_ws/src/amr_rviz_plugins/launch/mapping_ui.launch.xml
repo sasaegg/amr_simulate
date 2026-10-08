@@ -1,5 +1,5 @@
 <!--
-  建圖 UI：建圖（amr_navigation/mapping.launch.xml）＋ RViz（navigate.rviz，已含「AMR 建圖」面板）。
+  建圖 UI：建圖（amr_navigation/mapping.launch.xml）＋ RViz（config/mapping.rviz：地圖、光達、車身與「AMR 建圖」面板）。
   在面板輸入地圖名稱、按「存圖」即存到 /data/maps/NAME。
 
   用法（robot 容器內，車子系統已在執行）：
@@ -17,6 +17,6 @@
 
   <!-- RViz 關掉時整個建圖 UI 一起結束 -->
   <node pkg="rviz2" exec="rviz2" name="rviz_mapping" output="screen" on_exit="shutdown"
-        args="-d $(find-pkg-share amr_navigation)/config/navigate.rviz"
+        args="-d $(find-pkg-share amr_rviz_plugins)/config/mapping.rviz"
         ros_args="-p use_sim_time:=$(var use_sim_time)"/>
 </launch>

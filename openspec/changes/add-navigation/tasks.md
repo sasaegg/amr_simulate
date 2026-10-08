@@ -40,6 +40,7 @@
 - [x] 6.2 （筆記 22）新套件 `ros_ws/src/amr_rviz_plugins`（ament_cmake、C++、Qt5、pluginlib、rviz_common；不依賴模擬套件）：RViz 面板 `amr_rviz_plugins/MappingPanel`（車輛 id、地圖名稱輸入；「存圖」按鈕＋覆蓋確認視窗，呼叫 `/<id>/map_saver/save_map` 存到 `/data/maps/<名稱>`；狀態顯示地圖尺寸、已知比例、最後更新時間與存圖結果；車輛 id 與地圖名稱存進 RViz 設定檔）；`navigate.rviz` 加入面板；新增 `amr_rviz_plugins/launch/mapping_ui.launch.xml`（建圖＋載入 navigate.rviz 的 RViz；放在操作員工具套件，車上系統不依賴 RViz）；pytest：plugin 描述檔、套件邊界、設定檔含面板。驗證：`colcon build` 無警告、pytest 與 gtest（pluginlib 實際載入建立面板）通過；在容器內暫裝 Xvfb 以軟體渲染開 RViz，截圖確認面板顯示與狀態更新、以 xdotool 按「存圖」→ 確認視窗 → 存出檔案；實機畫面與按鈕操作併入 7.1 由使用者確認
 - [x] 6.3 （筆記 22）README「建圖與存圖」改為以 `mapping_ui.launch.xml` 與面板操作為主（指令存圖保留為替代方式）；更新開發摘要。驗證：照 README 執行 `mapping_ui.launch.xml` 啟動成功
 - [x] 6.4 （筆記 21 補記）使用者決定 `robot.launch.xml` 的 `mode` 只保留 `none`／`navigation`：建圖一律用 `mapping_ui.launch.xml`，`mode:=mapping` 改為不合法並提示建圖 UI；更新測試、spec、design、README、筆記。驗證：`mode:=mapping` 顯示訊息且不啟動節點、amr_bringup 測試通過、`mode:=navigation` 正常
+- [x] 6.5 （筆記 22 補記）使用者要求導航的 RViz 不出現建圖面板：RViz 設定拆成 `amr_rviz_plugins/config/mapping.rviz`（地圖、光達、車身、TF、建圖面板）與 `amr_navigation/config/navigate.rviz`（拿掉面板）；`mapping_ui.launch.xml` 改用 mapping.rviz；測試檢查 mapping.rviz 有面板且沒有導航用的 display、navigate.rviz 沒有面板。驗證：以乾淨映像在 Xvfb 分別開兩份設定截圖確認
 
 ## 7. 整體驗收
 

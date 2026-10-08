@@ -113,7 +113,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 - **新套件 `amr_rviz_plugins`**（ament_cmake、C++、Qt5）：操作員工具，不屬於車上執行的系統，也不依賴模擬套件。
 - **存圖用 Nav2 的 `map_saver_server`**（常駐、lifecycle node，提供 `save_map` 服務），放在 `mapping.launch.xml`、namespace `<id>` 下，由 `lifecycle_manager_mapping` 帶起。面板只呼叫服務、不直接寫檔：之後 RViz 開在操作員電腦、服務在車上時一樣能用。slam_toolbox 自帶的 RViz 面板寫死 `/slam_toolbox/save_map`、不支援 namespace，不能用。
 - 面板：車輛 id、地圖名稱、「存圖」按鈕（確認視窗顯示完整路徑並提醒同名會覆蓋）、狀態（地圖尺寸、已知比例、最後更新、存圖結果）。服務呼叫非同步，結果由 RViz 的執行緒回呼後更新畫面，不卡住 RViz。
-- `amr_rviz_plugins/launch/mapping_ui.launch.xml`：建圖 + 以 `navigate.rviz` 開啟的 RViz（設定檔已含面板）。放在操作員工具套件而不是 `amr_navigation`：它啟動 RViz，車上執行的系統不該依賴 RViz。
+- `amr_rviz_plugins/launch/mapping_ui.launch.xml`：建圖 + 以 `amr_rviz_plugins/config/mapping.rviz` 開啟的 RViz（地圖、光達、車身、TF 與建圖面板）。導航用的 `navigate.rviz` 不含建圖面板（使用者要求；也避免建圖時出現沒有資料的 costmap 警告）。放在操作員工具套件而不是 `amr_navigation`：它啟動 RViz，車上執行的系統不該依賴 RViz。
 - 不做：用按鈕開始／停止建圖（需要另一個管理節點去啟動程序；使用者決定先不做）。
 
 ### D10：學習筆記

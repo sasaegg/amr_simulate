@@ -43,11 +43,27 @@ def test_service_matches_mapping_launch():
     assert [n.get('name') for n in savers] == ['map_saver']
 
 
-def test_rviz_config_has_panel():
-    config = yaml.safe_load((SRC / 'amr_navigation' / 'config' / 'navigate.rviz').read_text(encoding='utf-8'))
+def rviz_config(path):
+    return yaml.safe_load(path.read_text(encoding='utf-8'))
+
+
+def test_mapping_rviz_has_panel_and_no_navigation_displays():
+    config = rviz_config(PACKAGE_DIR / 'config' / 'mapping.rviz')
     panels = [p for p in config['Panels'] if p['Class'] == 'amr_rviz_plugins/MappingPanel']
     assert len(panels) == 1
     assert panels[0]['robot_id'] == 'amr1'
+    names = {d['Name'] for d in config['Visualization Manager']['Displays']}
+    assert {'Map', 'LaserScan', 'RobotModel', 'TF'} <= names
+    assert not names & {'Global Costmap', 'Local Costmap', 'AMCL Particles', 'Global Plan'}   # 建圖時沒有
+    for display in config['Visualization Manager']['Displays']:
+        if 'Topic' in display:
+            assert display['Topic']['Value'].startswith('/amr1/'), display['Name']
+
+
+def test_navigation_rviz_has_no_mapping_panel():
+    # 導航時不需要建圖面板（使用者要求）
+    config = rviz_config(SRC / 'amr_navigation' / 'config' / 'navigate.rviz')
+    assert not [p for p in config['Panels'] if p['Class'].startswith('amr_rviz_plugins/')]
 
 
 def test_mapping_ui_launch_opens_rviz_with_panel_config():
@@ -56,5 +72,5 @@ def test_mapping_ui_launch_opens_rviz_with_panel_config():
     assert includes == ['$(find-pkg-share amr_navigation)/launch/mapping.launch.xml']
     rviz = [n for n in root.iter('node') if n.get('exec') == 'rviz2']
     assert len(rviz) == 1
-    assert rviz[0].get('args') == '-d $(find-pkg-share amr_navigation)/config/navigate.rviz'
+    assert rviz[0].get('args') == '-d $(find-pkg-share amr_rviz_plugins)/config/mapping.rviz'
     assert rviz[0].get('ros_args') == '-p use_sim_time:=$(var use_sim_time)'

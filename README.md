@@ -29,7 +29,7 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 | `amr_worlds` | 場景產生器、world、`world.launch.xml` | ❌ |
 | `amr_hw_sim` | 虛擬驅動 `sim_hardware.launch.xml`、冒煙測試 | ❌ |
 | `amr_navigation` | 建圖 `mapping.launch.xml`（含存圖服務）、導航 `navigation.launch.xml`、參數、RViz 設定檔 | ✅ |
-| `amr_rviz_plugins` | RViz「AMR 建圖」面板（按鈕存圖）、`mapping_ui.launch.xml` | 操作員電腦 |
+| `amr_rviz_plugins` | RViz「AMR 建圖」面板（按鈕存圖）、建圖用 RViz 設定 `mapping.rviz`、`mapping_ui.launch.xml` | 操作員電腦 |
 
 車輛對外介面（硬體介面）：`/amr1/cmd_vel`（輸入）、`/amr1/scan`、`/amr1/odom`、`/amr1/imu`、`/amr1/joint_states`、`/tf`（`amr1/odom → amr1/base_footprint`）、`/tf_static`；模擬時另有 `/clock`。所有 frame 帶 `amr1/` 前綴。
 
@@ -163,7 +163,6 @@ RViz 左下角的 **「AMR 建圖」面板**：
 - **同名會覆蓋**（確認視窗會提醒），建新圖請換名字；`docker/amr_sim/data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
 - 地圖名稱只能用英數字、`_`、`-`。
 - 「存圖」按鈕是灰的：存圖服務 `/amr1/map_saver/save_map` 還沒就緒（建圖剛啟動，或建圖沒在跑）。
-- 建圖時 Global／Local Costmap 顯示警告是正常的：costmap 只有導航時才有。
 - 關掉 RViz 視窗，建圖也一起結束。
 
 開法建議：

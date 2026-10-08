@@ -64,7 +64,7 @@ CMake 的重點：`set(CMAKE_AUTOMOC ON)`，並把標頭檔列進 `add_library`�
 - 執行緒：RViz 的 executor 在 Qt 主執行緒的更新迴圈裡 `spin_some`，所以訂閱與服務的回呼都在 Qt 執行緒，直接更新元件是安全的。
 - `load()`／`save()`：車輛 id 與地圖名稱存進 `.rviz` 設定檔；欄位一改就發 `configChanged()`，RViz 關閉時會提醒存檔。
 
-`navigate.rviz` 的 `Panels` 加入這個面板；`mapping_ui.launch.xml` 一次啟動建圖 + RViz（RViz 關掉時 `on_exit="shutdown"` 讓建圖一起結束）。這個 launch 放在 `amr_rviz_plugins` 而不是 `amr_navigation`：它啟動 RViz，車上的系統不該依賴 RViz。
+建圖用的 RViz 設定 `amr_rviz_plugins/config/mapping.rviz`（地圖、光達、車身、TF＋面板；task 6.5 從 `navigate.rviz` 拆出來，導航的 RViz 不再出現建圖面板）；`mapping_ui.launch.xml` 一次啟動建圖 + RViz（RViz 關掉時 `on_exit="shutdown"` 讓建圖一起結束）。這個 launch 放在 `amr_rviz_plugins` 而不是 `amr_navigation`：它啟動 RViz，車上的系統不該依賴 RViz。
 
 ### 3. 測試
 
@@ -106,6 +106,6 @@ A：單元層級用 Qt 的 offscreen 平台建立元件、檢查狀態；要看�
 - **參數檔改名後 colcon build 失敗**：`build/` 留著指向舊檔的 symlink。刪該套件的 build、install 重建。
 - **RViz 在 offscreen 平台會中止**：Ogre 需要真的 OpenGL 視窗；改用 Xvfb + 軟體渲染。
 - **Xvfb 下整張截圖時對話框是黑的**：沒有視窗管理器／合成器，`xwd -root` 抓不到對話框內容；用 `xdotool search --name` 找到視窗、`import -window <id>` 單獨截圖。
-- **建圖畫面的 Global／Local Costmap 顯示警告**：costmap 只在導航時存在，建圖時沒有資料，屬正常（README 有寫）。
+- **建圖畫面的 Global／Local Costmap 顯示警告**：costmap 只在導航時存在。task 6.5 把 RViz 設定拆成建圖用 `mapping.rviz`（沒有 costmap）與導航用 `navigate.rviz`（沒有建圖面板）後解決。
 - **停止時 RViz 被強制結束**：軟體渲染下 RViz 收到 SIGINT 後 10 秒內沒結束；只發生在 Xvfb 測試環境。
 - **使用者畫面上面板的中文全是方塊**：映像裡沒有中文字型。我在 Xvfb 驗證時看得到中文，是因為暫時安裝 imagemagick 時順便裝了字型——**測試環境和使用者環境不一樣，驗證就不算數**。修正：Dockerfile 加 `fonts-noto-cjk`（映像多約 170 MB），並用新映像在乾淨容器裡以 Qt offscreen 把中文畫成圖片確認。之後驗證 GUI 一律用乾淨的映像，不在容器裡另外裝東西。
