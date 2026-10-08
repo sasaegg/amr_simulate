@@ -8,7 +8,6 @@
 import math
 from pathlib import Path
 import subprocess
-import tempfile
 import time
 import unittest
 
@@ -20,7 +19,7 @@ from ament_index_python.packages import get_package_share_directory  # noqa: E40
 from geometry_msgs.msg import Twist  # noqa: E402
 from launch import LaunchDescription  # noqa: E402
 from launch.actions import IncludeLaunchDescription, TimerAction  # noqa: E402
-from launch.launch_description_sources import PythonLaunchDescriptionSource  # noqa: E402
+from launch.launch_description_sources import AnyLaunchDescriptionSource  # noqa: E402
 import launch_testing.actions  # noqa: E402
 from nav_msgs.msg import Odometry  # noqa: E402
 import rclpy  # noqa: E402
@@ -36,19 +35,19 @@ WORLD = 'warehouse_small'
 
 def include(package, launch_file, **arguments):
     path = Path(get_package_share_directory(package)) / 'launch' / launch_file
-    return IncludeLaunchDescription(PythonLaunchDescriptionSource(str(path)),
+    return IncludeLaunchDescription(AnyLaunchDescriptionSource(str(path)),
                                     launch_arguments=arguments.items())
 
 
 @pytest.mark.launch_test
 def generate_test_description():
-    robot_yaml = Path(tempfile.mkdtemp()) / 'robot.yaml'
-    robot_yaml.write_text(f'robot_id: {ROBOT_ID}\nhardware: sim\nsim:\n  spawn: {list(SPAWN)}\n')
+    x, y, yaw = (str(v) for v in SPAWN)
     return LaunchDescription([
-        include('amr_worlds', 'world.launch.py', world=WORLD, headless='true'),
+        include('amr_worlds', 'world.launch.xml', world=WORLD, headless='true'),
         # 世界先起來再啟動車子系統（spawn 也會自己等世界，這裡只是讓啟動順序接近實際操作）
         TimerAction(period=3.0, actions=[
-            include('amr_bringup', 'robot.launch.py', config=str(robot_yaml)),
+            include('amr_bringup', 'robot.launch.xml',
+                    hardware='sim', robot_id=ROBOT_ID, x=x, y=y, yaw=yaw),
         ]),
         launch_testing.actions.ReadyToTest(),
     ])

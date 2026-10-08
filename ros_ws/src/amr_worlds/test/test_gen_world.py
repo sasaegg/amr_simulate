@@ -153,9 +153,9 @@ def test_validate_element_out_of_bounds(scene, modify, where):
     assert_scene_error(scene, where)
 
 def test_validate_rejects_spawn_field(scene):
-    # 出生點改由車子系統的 robot.yaml 設定；場景還寫著 spawn 時要明確報錯，不能默默忽略
+    # 出生點改由啟動車子系統時指定；場景還寫著 spawn 時要明確報錯，不能默默忽略
     scene['spawn'] = {'amr1': [1, 1, 0]}
-    assert_scene_error(scene, 'spawn', 'robot.yaml')
+    assert_scene_error(scene, 'spawn', 'robot.launch.xml')
 
 def write_scene(path, scene):
     path.parent.mkdir(parents=True, exist_ok=True)

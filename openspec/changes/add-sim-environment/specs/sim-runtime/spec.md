@@ -23,7 +23,7 @@
 
 #### Scenario: 啟動車子系統讓車輛進入世界
 - **WHEN** 世界已在執行，使用者以 `exec.sh robot` 進入並執行車子系統的 launch 指令（模擬模式）
-- **THEN** 車輛出現在 Gazebo 中 `robot.yaml` 指定的位置
+- **THEN** 車輛出現在 Gazebo 中啟動參數 `x`、`y`、`yaw` 指定的位置
 
 #### Scenario: 停止車子系統但保留世界
 - **WHEN** 使用者在執行車子系統 launch 的 shell 按下 Ctrl+C（即使車輛正在移動）
@@ -31,7 +31,7 @@
 
 #### Scenario: 重新啟動車子系統不產生重複車輛
 - **WHEN** 車輛已在世界中（前一次車子系統已停止），使用者再次啟動車子系統
-- **THEN** 既有的車輛停下並被移回 `robot.yaml` 指定的位置與朝向，世界中只有一台該 id 的車輛
+- **THEN** 既有的車輛停下並被移回這次啟動參數指定的位置與朝向，世界中只有一台該 id 的車輛
 
 #### Scenario: 停止世界
 - **WHEN** 使用者在執行世界 launch 的 shell 按下 Ctrl+C
@@ -42,19 +42,23 @@
 - **THEN** 兩個容器在 1 秒內停止並移除
 
 ### Requirement: 硬體模式
-車子系統 SHALL 依執行設定 `robot.yaml` 的 `hardware` 決定使用的驅動，值 SHALL 為 `sim` 或 `real` 且必須明確設定（沒有預設值）。`sim` 時 SHALL 啟動虛擬驅動（車輛進入世界、底盤、光達、IMU 的資料由 Gazebo 提供）並以模擬時間執行；`real` 時目前 SHALL 回報尚未提供真車驅動並以非零碼結束。缺少或不合法的值 SHALL 報錯並列出可用值。
+車子系統 SHALL 依啟動參數 `hardware` 決定使用的驅動，值 SHALL 為 `sim` 或 `real` 且必須明確指定（沒有預設值）。`sim` 時 SHALL 啟動虛擬驅動（車輛進入世界、底盤、光達、IMU 的資料由 Gazebo 提供）並以模擬時間執行；`real` 時目前 SHALL 顯示尚未提供真車驅動的訊息並結束，不啟動任何節點。不合法的值 SHALL 顯示訊息（含收到的值與可用值）並結束，不啟動任何節點。
 
 #### Scenario: 模擬模式
-- **WHEN** `robot.yaml` 設定 `hardware: sim` 並啟動車子系統
+- **WHEN** 以 `hardware:=sim` 啟動車子系統
 - **THEN** 虛擬驅動啟動，`/amr1/scan`、`/amr1/odom`、`/amr1/imu` 有資料，robot 側節點使用模擬時間
 
 #### Scenario: 真車模式尚未提供
-- **WHEN** `robot.yaml` 設定 `hardware: real` 並啟動車子系統
-- **THEN** 以非零碼結束，訊息指出尚未提供真車驅動
+- **WHEN** 以 `hardware:=real` 啟動車子系統
+- **THEN** 訊息指出尚未提供真車驅動，沒有啟動任何節點即結束
 
-#### Scenario: 未設定硬體模式
-- **WHEN** `robot.yaml` 沒有 `hardware`，啟動指令也未指定
-- **THEN** 以非零碼結束，訊息指出必須設定 `hardware`，可用值為 `sim`、`real`
+#### Scenario: 未指定硬體模式
+- **WHEN** 啟動車子系統時沒有指定 `hardware`
+- **THEN** 以非零碼結束，訊息指出缺少必要參數 `hardware`
+
+#### Scenario: 不合法的硬體模式
+- **WHEN** 以 `hardware:=foo` 啟動車子系統
+- **THEN** 訊息指出 `hardware` 必須是 `sim` 或 `real` 並顯示收到的值，沒有啟動任何節點即結束
 
 ### Requirement: 車子系統不依賴模擬套件
 車子系統的套件（部署到真車上的部分）SHALL 不依賴任何 Gazebo／ros_gz 相關套件與虛擬驅動套件；虛擬驅動只在模擬模式時以套件名稱載入。
@@ -71,30 +75,26 @@
 - **THEN** `/clock` 恰有一個發布者，且位於 `sim` 容器
 
 ### Requirement: 選擇場景
-要載入的 world SHALL 依序由下列來源決定，後者覆寫前者：(1) 套件內建預設值 `warehouse_small`；(2) 執行設定檔 `world.yaml` 的 `world`；(3) 世界 launch 參數 `world`。切換場景 SHALL 不需修改 compose 檔或重建映像。
+要載入的 world SHALL 由世界 launch 參數 `world` 決定，未指定時 SHALL 為 `warehouse_small`。切換場景 SHALL 不需修改 compose 檔或重建映像。
 
-#### Scenario: 由執行設定檔切換
-- **WHEN** 使用者把 `world.yaml` 的 `world` 改為 `warehouse_small_edited` 並重新啟動世界
+#### Scenario: 以啟動參數切換
+- **WHEN** 使用者以 `world:=warehouse_small_edited` 啟動世界
 - **THEN** Gazebo 載入 `warehouse_small_edited.sdf`
 
-#### Scenario: 未設定時使用預設值
-- **WHEN** `world.yaml` 沒有 `world` 欄位，啟動指令也未指定
+#### Scenario: 未指定時使用預設值
+- **WHEN** 啟動世界時沒有指定 `world`
 - **THEN** Gazebo 載入 `warehouse_small.sdf`
 
-#### Scenario: 命令列覆寫
-- **WHEN** `world.yaml` 設為 `warehouse_small`，但啟動指令帶 `world:=warehouse_small_edited`
-- **THEN** Gazebo 載入 `warehouse_small_edited.sdf`
+#### Scenario: world 不存在
+- **WHEN** 指定的 world 檔不存在（例如新增後尚未 `colcon build`）
+- **THEN** 訊息顯示嘗試載入的路徑，Gazebo 結束後整個世界 launch 一起結束，不殘留其他程序
 
-### Requirement: 執行設定集中管理
-執行期設定 SHALL 集中於專案的 `docker/amr_sim/config/` 目錄：兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）放在一個環境變數檔，世界的參數放在 `world.yaml`，車子系統的參數放在 `robot.yaml`。該目錄掛載進容器時 SHALL 可寫入。
+### Requirement: 執行設定
+兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）SHALL 放在專案 `docker/amr_sim/config/` 的一個環境變數檔；世界與車子系統的設定（world、headless、hardware、robot_id、出生位姿）SHALL 以 launch 參數傳入，各參數的預設值寫在 launch 檔中。
 
 #### Scenario: 兩個容器取得相同 domain
 - **WHEN** 使用者把環境變數檔中的 `ROS_DOMAIN_ID` 改為 42 並重建容器，再分別進入 `sim` 與 `robot` 執行 `ros2 topic list`
 - **THEN** 兩個 shell 的 `ROS_DOMAIN_ID` 皆為 42，且在 `robot` 中可看到 `sim` 發布的 `/clock`
-
-#### Scenario: 程式可寫入設定目錄
-- **WHEN** 容器內的程序在 `/config` 下建立或修改檔案
-- **THEN** 寫入成功，且變更出現在主機的 `docker/amr_sim/config/`
 
 ### Requirement: 容器以標準 X11 取得顯示
 兩個容器 SHALL 只透過標準 Linux X11 機制（`DISPLAY` 環境變數與 `/tmp/.X11-unix` socket）把圖形畫面送到主機的 X server；容器內程序 SHALL 以與主機使用者相同的 UID 執行。

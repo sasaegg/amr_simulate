@@ -27,7 +27,6 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro    # X11 socket：視窗畫到主機桌面
       - ../../ros_ws:/ros_ws                 # 原始碼：改了不用重建映像
-      - ./config:/config                     # 執行設定：可寫
 
     deploy:
       resources:
@@ -55,7 +54,6 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - ../../ros_ws:/ros_ws
-      - ./config:/config
 
     deploy:
       resources:

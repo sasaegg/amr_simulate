@@ -8,7 +8,7 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 
 ```
 ┌──────────────── robot 容器：車子系統（之後部署到真車）────────────────┐   ┌──── sim 容器 ────┐
-│ robot.launch.py（中控）   hardware: sim | real                          │   │ world.launch.py  │
+│ robot.launch.xml（中控）  hardware:=sim | real                         │   │ world.launch.xml │
 │  ├ robot_state_publisher                                               │   │  ├ Gazebo 世界   │
 │  └ hardware: sim → 虛擬驅動（amr_hw_sim）                               │◀─▶│  └ /clock        │
 │       ├ 虛擬底盤：把車放進世界、cmd_vel 逾時停車、odom／TF／joint_states │   │                  │
@@ -21,9 +21,9 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 | 套件 | 內容 | 真車需要 |
 |---|---|---|
 | `amr_description` | 車輛模型（xacro） | ✅ |
-| `amr_bringup` | 車子系統中控 `robot.launch.py` | ✅ |
-| `amr_worlds` | 場景產生器、world、`world.launch.py` | ❌ |
-| `amr_hw_sim` | 虛擬驅動、冒煙測試 | ❌ |
+| `amr_bringup` | 車子系統中控 `robot.launch.xml` | ✅ |
+| `amr_worlds` | 場景產生器、world、`world.launch.xml` | ❌ |
+| `amr_hw_sim` | 虛擬驅動 `sim_hardware.launch.xml`、冒煙測試 | ❌ |
 
 車輛對外介面（硬體介面）：`/amr1/cmd_vel`（輸入）、`/amr1/scan`、`/amr1/odom`、`/amr1/imu`、`/amr1/joint_states`、`/tf`（`amr1/odom → amr1/base_footprint`）、`/tf_static`；模擬時另有 `/clock`。所有 frame 帶 `amr1/` 前綴。
 
@@ -48,18 +48,18 @@ docker/amr_sim/up_gpu.sh         # 背景啟動 sim、robot 兩個長駐容器�
 
 ```bash
 docker/amr_sim/exec.sh sim       # 終端機 1：進入 sim 容器
-ros2 launch amr_worlds world.launch.py config:=/config/world.yaml
+ros2 launch amr_worlds world.launch.xml
 ```
 
 ```bash
 docker/amr_sim/exec.sh robot     # 終端機 2：進入 robot 容器
-ros2 launch amr_bringup robot.launch.py config:=/config/robot.yaml
+ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1
 ```
 
 Gazebo 視窗出現倉庫，車子系統啟動後車輛出現在 (1, 1)。
 
 - 容器啟動時若工作區還沒建置過（沒有 `ros_ws/install`），entrypoint 會自動 `colcon build`；之後修改 Python／launch／YAML 不需要重新 build，**新增檔案**（新的套件、場景、world）才要在容器內 `cd /ros_ws && colcon build --symlink-install`。
-- 停止：各自在 launch 的終端機按 Ctrl+C。停止車子系統時車輛會停下並留在世界中；再次啟動會移回出生點。
+- 停止：各自在 launch 的終端機按 Ctrl+C（或直接關掉 Gazebo 視窗，世界的 launch 會跟著結束）。停止車子系統時車輛會停下並留在世界中；再次啟動會移回出生點。
 - 收工：`cd docker/amr_sim && docker compose down`。
 - 修改 Dockerfile 後：`docker/amr_sim/up_gpu.sh --build`。
 - `exec.sh` 必須指定 `sim` 或 `robot`。
@@ -74,20 +74,23 @@ export USER_UID=$(id -u) USER_GID=$(id -g)
 
 ## 設定
 
-`docker/amr_sim/config/`（掛載到兩個容器的 `/config`，可寫入）：
+launch 檔用 XML 寫（和 ROS 1 的 `<arg>` 相同概念），設定全部是 launch 參數，預設值寫在 launch 檔裡；用 `名稱:=值` 覆寫。
 
-| 檔案 | 用於 | 內容 |
+| launch | 參數 | 預設 |
 |---|---|---|
-| `ros.env` | 兩個容器 | `ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up_gpu.sh` 重建容器） |
-| `world.yaml` | sim | `world`（`worlds/<world>.sdf`）、`headless` |
-| `robot.yaml` | robot | `robot_id`、**`hardware`（必填：`sim` 或 `real`）**、`sim.spawn: [x, y, yaw]` |
-
-覆寫順序：套件預設 ← 設定檔 ← 命令列參數，例如：
+| `amr_worlds world.launch.xml` | `world`（`worlds/<world>.sdf`） | `warehouse_small` |
+| | `headless`（`true` = 不開 GUI） | `false` |
+| `amr_bringup robot.launch.xml` | **`hardware`：`sim` 或 `real`（必填）** | 無 |
+| | `robot_id`（namespace 與 TF 前綴） | `amr1` |
+| | `x`、`y`、`yaw`：模擬時車輛放進世界的位置（公尺、弧度） | `0` |
 
 ```bash
-ros2 launch amr_worlds world.launch.py config:=/config/world.yaml world:=warehouse_small_edited
-ros2 launch amr_bringup robot.launch.py config:=/config/robot.yaml robot_id:=amr2
+ros2 launch amr_worlds world.launch.xml world:=warehouse_small_edited
+ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=3 y:=1 yaw:=1.57
+ros2 launch amr_bringup robot.launch.xml --show-args     # 列出所有參數與說明
 ```
+
+兩個容器共用的 ROS 環境變數在 `docker/amr_sim/config/ros.env`：`ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up_gpu.sh` 重建容器）。
 
 ## 地圖
 
@@ -99,8 +102,8 @@ ros2 run amr_worlds gen_world /ros_ws/src/amr_worlds/scenes/warehouse_small.yaml
 ```
 
 - 結構變更（牆、貨架、障礙物）：改 YAML → 重新產生 → 重啟世界。
-- 細節微調：在 Gazebo GUI 修改後另存為 `ros_ws/src/amr_worlds/worlds/<name>_edited.sdf`，`colcon build` 後把 `world.yaml` 的 `world` 改成 `<name>_edited`。產生器不會覆蓋 `_edited.sdf`。
-- 車輛出生點不屬於場景，寫在 `robot.yaml`。
+- 細節微調：在 Gazebo GUI 修改後另存為 `ros_ws/src/amr_worlds/worlds/<name>_edited.sdf`，`colcon build` 後以 `world:=<name>_edited` 啟動世界。產生器不會覆蓋 `_edited.sdf`。
+- 車輛出生點不屬於場景，在啟動車子系統時以 `x:=`、`y:=`、`yaw:=` 指定。
 
 ## 開車與觀察
 
@@ -147,7 +150,7 @@ cd /ros_ws/src/amr_worlds && env -i PATH=/usr/bin:/bin python3 -m pytest -q test
 | `docker: permission denied` | 沒加入 docker 群組或沒重新登入（筆記 01） |
 | Gazebo 開得很慢、renderer 是 llvmpipe | 容器內 `glxinfo -B` 檢查；確認 toolkit 與驅動（筆記 02、03） |
 | `ros2 topic list` 看得到 topic 但收不到資料 | 容器沒有 `ipc: host`（筆記 06） |
-| 找不到 world | 新增的 world 要先 `colcon build` |
-| 車子系統啟動報 `hardware: 必須明確設定` | `robot.yaml` 要寫 `hardware: sim` |
+| `Unable to find or download file`，世界的 launch 隨即結束 | world 名稱打錯，或新增的 world 還沒 `colcon build`（launch 第一行會印出嘗試載入的路徑） |
+| 車子系統啟動報 `missing required argument 'hardware'` | 啟動時要加 `hardware:=sim` |
 | build 報 `can't copy ... doesn't exist` | 刪除原始檔後 `build/` 留下斷掉的 symlink：刪除該套件的 `ros_ws/build/<套件>`、`ros_ws/install/<套件>` 後重建 |
 | 外接螢幕接在 NVIDIA、Wayland 黑畫面 | `/etc/gdm3/custom.conf` 設 `WaylandEnable=false` 改用 Xorg（筆記 02） |

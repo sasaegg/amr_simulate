@@ -3,7 +3,7 @@
 以 YAML 描述倉庫場景，產生 Gazebo Fortress 可載入的 SDF world。
 
 ```
-scenes/<name>.yaml  ──gen_world──▶  worlds/<name>.sdf  ──▶  ign gazebo / sim.launch.py
+scenes/<name>.yaml  ──gen_world──▶  worlds/<name>.sdf  ──▶  ign gazebo / world.launch.xml
 ```
 
 ## 產生 world
@@ -74,7 +74,7 @@ obstacles:                     # 選填。障礙物
 
 - 必填欄位存在、型別正確（數字不接受 `true`／`false`）、尺寸 > 0。
 - 元素在地板範圍內：牆看兩端點；貨架與 box 看旋轉後的四個角；圓柱看半徑範圍。
-- **場景不定義車輛出生點**：世界不知道有哪些車，出生點寫在車子系統的 `docker/amr_sim/config/robot.yaml`（`sim.spawn`）。場景出現 `spawn` 欄位時會報錯提醒，而不是默默忽略。
+- **場景不定義車輛出生點**：世界不知道有哪些車，出生點在啟動車子系統時指定（`robot.launch.xml` 的 `x:=`、`y:=`、`yaw:=`）。場景出現 `spawn` 欄位時會報錯提醒，而不是默默忽略。
 
 ## 產生的 SDF 結構
 

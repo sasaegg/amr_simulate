@@ -3,6 +3,8 @@
 套件：[`ros_ws/src/amr_hw_sim/`](../../ros_ws/src/amr_hw_sim/)（task 5.1–5.3 時寫在 `amr_bringup`，5.5 架構調整後搬到這裡）
 檔案：[`watchdog.py`](../../ros_ws/src/amr_hw_sim/amr_hw_sim/watchdog.py)、[`cmd_vel_watchdog.py`](../../ros_ws/src/amr_hw_sim/amr_hw_sim/cmd_vel_watchdog.py)、[`bridge.py`](../../ros_ws/src/amr_hw_sim/amr_hw_sim/bridge.py)
 
+> **2026-10-08 更新**：launch 改為 XML 後，`bridge.py` 已刪除，bridge 對應改寫在 `sim_hardware.launch.xml` 的 parameter_bridge `args`（見[筆記 14](14-launch改為XML.md)）。本篇的 bridge 概念、型別、方向仍然適用。
+
 ## 為什麼要做
 
 - **watchdog**：Gazebo Fortress 的 DiffDrive 沒有指令逾時；teleop 或導航程式當掉時，車子會照最後一筆指令一直走。真車的馬達驅動板通常自己有逾時，模擬要補上這個「假驅動板」功能（deadman 設計）。

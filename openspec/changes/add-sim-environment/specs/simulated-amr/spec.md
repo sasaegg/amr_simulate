@@ -60,12 +60,12 @@
 - **THEN** `/clock` 停止前進，且 `/amr1/odom` 不再發布新時間戳的訊息
 
 ### Requirement: 出生位姿
-模擬模式下，車輛 SHALL 在車子系統啟動時出現在 `robot.yaml` 的 `sim.spawn` 指定的位姿 `[x, y, yaw]`（yaw 以弧度表示）；未設定時 SHALL 為原點 `[0, 0, 0]`。世界（場景）本身不定義車輛的出生位置。
+模擬模式下，車輛 SHALL 在車子系統啟動時出現在啟動參數 `x`、`y`、`yaw` 指定的位姿（公尺、弧度）；未指定的參數 SHALL 為 0。世界（場景）本身不定義車輛的出生位置。
 
 #### Scenario: 車輛於指定位姿出生
-- **WHEN** `robot.yaml` 設定 `sim: {spawn: [1, 1, 0]}` 並以模擬模式啟動車子系統
+- **WHEN** 以 `hardware:=sim x:=1 y:=1 yaw:=0` 啟動車子系統
 - **THEN** `amr1` 出現在 (1, 1) 且車頭朝 +x 方向
 
-#### Scenario: 未設定出生位姿
-- **WHEN** `robot.yaml` 沒有 `sim.spawn`
+#### Scenario: 未指定出生位姿
+- **WHEN** 以 `hardware:=sim` 啟動車子系統，沒有指定 `x`、`y`、`yaw`
 - **THEN** `amr1` 出現在 (0, 0) 且車頭朝 +x 方向

@@ -1,0 +1,44 @@
+<!--
+  模擬模式的虛擬驅動：由車子系統的中控（amr_bringup/robot.launch.xml）在 hardware=sim 時 include。
+
+  每個虛擬元件是獨立節點，對應真車上的各個驅動；資料由 Gazebo 依車輛在世界中的實際位置計算：
+    虛擬底盤   spawn（把車體放進世界）+ cmd_vel_watchdog（假驅動板的指令逾時）+ 底盤 bridge
+    虛擬光達   scan bridge
+    虛擬 IMU   imu bridge
+  對車子系統而言，這些節點提供的 topic 與真車驅動相同（/ID/cmd_vel、scan、odom、imu、joint_states、/tf）。
+
+  bridge 參數格式：<topic>@<ROS 型別><方向><Gazebo 型別>，方向 [ = Gazebo → ROS，] = ROS → Gazebo。
+  Gazebo 端 topic 必須和 amr_description 的外掛／感測器設定一致（test_bridge.py 檢查）。
+-->
+<launch>
+  <arg name="robot_id" default="amr1" description="車輛 id（namespace、TF 前綴、Gazebo 實體名稱）"/>
+  <arg name="x" default="0.0" description="出生位置 x（公尺）"/>
+  <arg name="y" default="0.0" description="出生位置 y（公尺）"/>
+  <arg name="yaw" default="0.0" description="出生朝向（弧度）"/>
+
+  <!-- ==== 虛擬底盤 ==== -->
+  <node pkg="amr_hw_sim" exec="spawn_robot" name="spawn_$(var robot_id)" output="screen"
+        args="--robot-id $(var robot_id) --x $(var x) --y $(var y) --yaw $(var yaw)"/>
+
+  <node pkg="amr_hw_sim" exec="cmd_vel_watchdog" namespace="$(var robot_id)" output="screen">
+    <param name="use_sim_time" value="true"/>
+  </node>
+
+  <!-- 唯一由 ROS 送進 Gazebo 的是經過 watchdog 的速度指令 -->
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="base_bridge" namespace="$(var robot_id)" output="screen"
+        args="/$(var robot_id)/cmd_vel_gz@geometry_msgs/msg/Twist]ignition.msgs.Twist
+              /$(var robot_id)/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry
+              /$(var robot_id)/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V
+              /$(var robot_id)/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model">
+    <!-- DiffDrive 的 odom→base_footprint TF：Gazebo 端每台車一個 topic，ROS 端合併到全域 /tf -->
+    <remap from="/$(var robot_id)/tf" to="/tf"/>
+  </node>
+
+  <!-- ==== 虛擬光達 ==== -->
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="lidar_bridge" namespace="$(var robot_id)" output="screen"
+        args="/$(var robot_id)/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan"/>
+
+  <!-- ==== 虛擬 IMU ==== -->
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="imu_bridge" namespace="$(var robot_id)" output="screen"
+        args="/$(var robot_id)/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU"/>
+</launch>

@@ -86,7 +86,7 @@ def wait_for_world(timeout, poll=1.0, log=print):
         if world:
             return world
         if time.monotonic() > deadline:
-            raise TimeoutError(f'等了 {timeout:.0f} 秒仍沒有 Gazebo 世界（sim 容器的 world.launch.py 有啟動嗎？）')
+            raise TimeoutError(f'等了 {timeout:.0f} 秒仍沒有 Gazebo 世界（sim 容器的 world.launch.xml 有啟動嗎？）')
         if not announced:
             log('等待 Gazebo 世界啟動中…')
             announced = True

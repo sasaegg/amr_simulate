@@ -1,0 +1,53 @@
+<!--
+  車子系統的中控：依 hardware 帶起驅動，加上與硬體無關的共用節點。
+
+  用法（robot 容器內）：
+    ros2 launch amr_bringup robot.launch.xml hardware:=sim
+    ros2 launch amr_bringup robot.launch.xml hardware:=sim robot_id:=amr2 x:=3 y:=1 yaw:=1.57
+
+  hardware（必填，沒有預設值）：
+    sim   include amr_hw_sim 的 sim_hardware.launch.xml（虛擬驅動，資料由 Gazebo 提供），使用模擬時間
+    real  真車驅動（尚未提供）
+  真車上不會安裝 amr_hw_sim：只在 hardware=sim 時以套件名稱尋找它，package.xml 不宣告相依。
+-->
+<launch>
+  <arg name="hardware" description="必填：sim 或 real"/>
+  <arg name="robot_id" default="amr1" description="車輛 id，同時是 namespace 與 TF 前綴"/>
+  <arg name="x" default="0.0" description="hardware=sim：車輛放進世界的位置 x（公尺）"/>
+  <arg name="y" default="0.0" description="hardware=sim：位置 y（公尺）"/>
+  <arg name="yaw" default="0.0" description="hardware=sim：朝向（弧度）"/>
+
+  <let name="is_sim" value="$(equals $(var hardware) sim)"/>
+  <let name="is_real" value="$(equals $(var hardware) real)"/>
+
+  <!-- ==== hardware 檢查：不是 sim 就結束（real 尚未提供） ==== -->
+  <group if="$(var is_real)">
+    <log message="hardware=real：尚未提供真車驅動（amr_hw_real），目前只能使用 hardware:=sim"/>
+    <shutdown reason="hardware=real 尚未提供"/>
+  </group>
+  <group unless="$(or $(var is_sim) $(var is_real))">
+    <log message="hardware 必須是 sim 或 real，收到 '$(var hardware)'"/>
+    <shutdown reason="hardware 不正確"/>
+  </group>
+
+  <!-- 目前只有 sim 能啟動；提供真車驅動後，與硬體無關的節點改為 sim、real 都啟動 -->
+  <group if="$(var is_sim)">
+    <log message="robot_id=$(var robot_id) hardware=$(var hardware) use_sim_time=$(var is_sim)"/>
+
+    <!-- ==== 與硬體無關：依 URDF 與 joint_states 發布車身各零件的 TF ==== -->
+    <node pkg="robot_state_publisher" exec="robot_state_publisher" namespace="$(var robot_id)" output="screen">
+      <param name="robot_description" type="str"
+             value="$(command 'xacro $(find-pkg-share amr_description)/urdf/amr.urdf.xacro robot_id:=$(var robot_id)')"/>
+      <param name="frame_prefix" value="$(var robot_id)/"/>
+      <param name="use_sim_time" value="$(var is_sim)"/>
+    </node>
+
+    <!-- ==== 驅動：hardware=sim → 虛擬驅動 ==== -->
+    <include file="$(find-pkg-share amr_hw_sim)/launch/sim_hardware.launch.xml">
+      <arg name="robot_id" value="$(var robot_id)"/>
+      <arg name="x" value="$(var x)"/>
+      <arg name="y" value="$(var y)"/>
+      <arg name="yaw" value="$(var yaw)"/>
+    </include>
+  </group>
+</launch>

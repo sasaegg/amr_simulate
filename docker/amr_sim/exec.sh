@@ -6,8 +6,8 @@ cd "$(dirname "$0")"
 
 usage() {
     echo "用法：$0 <sim|robot>" >&2
-    echo "  sim    世界：ros2 launch amr_worlds world.launch.py config:=/config/world.yaml" >&2
-    echo "  robot  車子系統：ros2 launch amr_bringup robot.launch.py config:=/config/robot.yaml" >&2
+    echo "  sim    世界：ros2 launch amr_worlds world.launch.xml" >&2
+    echo "  robot  車子系統：ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1" >&2
     exit 2
 }
 

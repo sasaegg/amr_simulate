@@ -1,4 +1,0 @@
-# 世界（sim 容器）的執行設定：ros2 launch amr_worlds world.launch.py config:=/config/world.yaml
-# 覆寫順序：套件預設 ← 這個檔案 ← 命令列參數（例如 world:=warehouse_small_edited）
-world: warehouse_small     # worlds/<world>.sdf；新增的 world 要先 colcon build
-headless: false            # true = 不開 Gazebo GUI

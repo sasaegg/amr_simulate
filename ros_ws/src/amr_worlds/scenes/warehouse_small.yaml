@@ -37,4 +37,4 @@ obstacles:
   - {type: cylinder, pos: [17, 12], radius: 0.3, height: 1.2}
   - {type: cylinder, pos: [14, 2], radius: 0.25, height: 1.0}
 
-# 車輛出生點不屬於世界：由車子系統的 docker/amr_sim/config/robot.yaml（sim.spawn）設定
+# 車輛出生點不屬於世界：啟動車子系統時指定（robot.launch.xml 的 x:= y:= yaw:=）

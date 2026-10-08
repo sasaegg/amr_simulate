@@ -55,7 +55,7 @@
 
 #### Scenario: 場景不再定義出生點
 - **WHEN** 場景 YAML 含有 `spawn` 欄位
-- **THEN** 指令以非零碼結束，訊息指出出生點已改由車子系統的 `robot.yaml` 設定
+- **THEN** 指令以非零碼結束，訊息指出出生點改在啟動車子系統時指定
 
 #### Scenario: 驗證失敗不覆蓋既有輸出
 - **WHEN** 已存在 `warehouse_small.sdf`，使用者把 YAML 改壞後執行產生指令

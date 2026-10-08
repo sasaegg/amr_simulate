@@ -1,7 +1,0 @@
-# 車子系統（robot 容器）的執行設定：ros2 launch amr_bringup robot.launch.py config:=/config/robot.yaml
-# 覆寫順序：套件預設 ← 這個檔案 ← 命令列參數（例如 hardware:=sim）
-robot_id: amr1             # namespace 與 TF 前綴
-hardware: sim              # 必填：sim（虛擬驅動，資料由 Gazebo 提供）或 real（真車驅動，尚未提供）
-
-sim:                       # 只在 hardware: sim 時使用
-  spawn: [1, 1, 0]         # 車輛放進世界的位置 [x, y, yaw]（公尺、弧度）

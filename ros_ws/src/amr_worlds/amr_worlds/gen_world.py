@@ -139,7 +139,7 @@ def validate(scene):
 
     if 'spawn' in scene:
         # 世界不知道有哪些車：出生點屬於車子系統的設定
-        raise SceneError('spawn: 場景不再定義出生點，請改在車子系統的 robot.yaml（sim.spawn）設定')
+        raise SceneError('spawn: 場景不再定義出生點，請在啟動車子系統時指定（robot.launch.xml 的 x:= y:= yaw:=）')
 
     if 'size' not in scene:
         raise SceneError('size: 缺少必要欄位')

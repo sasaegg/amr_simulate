@@ -1,0 +1,26 @@
+<!--
+  啟動世界：Gazebo（倉庫 world）與模擬時間 /clock。世界中沒有車輛——車輛由車子系統帶進來。
+
+  用法（sim 容器內）：
+    ros2 launch amr_worlds world.launch.xml
+    ros2 launch amr_worlds world.launch.xml world:=warehouse_small_edited headless:=true
+
+  world 檔從套件 share 目錄讀取：symlink-install 下修改既有檔案即時生效，新增檔案需 colcon build。
+-->
+<launch>
+  <arg name="world" default="warehouse_small" description="world 名稱（worlds/WORLD.sdf）"/>
+  <arg name="headless" default="false" description="true = 不開 Gazebo GUI（以 EGL 離屏渲染，光達照常運作）"/>
+
+  <let name="world_file" value="$(find-pkg-share amr_worlds)/worlds/$(var world).sdf"/>
+  <log message="world=$(var world_file) headless=$(var headless)"/>
+
+  <!-- Gazebo 不是 ROS 節點，用 executable 執行；-r 啟動後立即開始模擬。
+       on_exit="shutdown"：Gazebo 結束（關掉視窗、找不到 world 檔）時整個 launch 一起結束 -->
+  <executable cmd="ign gazebo -r $(var world_file)" output="screen" on_exit="shutdown" unless="$(var headless)"/>
+  <!-- headless：只跑 server（-s），用 EGL 離屏渲染（headless-rendering 選項） -->
+  <executable cmd="ign gazebo -r -s --headless-rendering $(var world_file)" output="screen" on_exit="shutdown" if="$(var headless)"/>
+
+  <!-- 模擬時間屬於世界：不論幾台車，/clock 只由這裡轉送一次。[ 表示 Gazebo → ROS -->
+  <node pkg="ros_gz_bridge" exec="parameter_bridge" name="clock_bridge" output="screen"
+        args="/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock"/>
+</launch>
