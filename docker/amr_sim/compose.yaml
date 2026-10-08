@@ -54,7 +54,7 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - ../../ros_ws:/ros_ws
-      - ../../data:/data                     # 執行資料（地圖）：可寫，只有車子系統需要
+      - ./data:/data                         # 執行資料（地圖）：可寫，只有車子系統需要
 
     deploy:
       resources:

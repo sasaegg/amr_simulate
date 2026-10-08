@@ -80,7 +80,7 @@ launch_test test/test_mapping_smoke.py                    # amr_hw_sim：Ran 5 t
 colcon test && colcon test-result --all                   # 134 tests, 0 failures
 ```
 
-手動實測：已知格 1174 → 12202、地圖 257×248 → 296×254；`/tf` 發布者確認只有 slam_toolbox 加了 `map`。README 的存圖指令照抄執行一次，`data/maps/` 下產生的檔案擁有者是使用者。
+手動實測：已知格 1174 → 12202、地圖 257×248 → 296×254；`/tf` 發布者確認只有 slam_toolbox 加了 `map`。README 的存圖指令照抄執行一次，`docker/amr_sim/data/maps/` 下產生的檔案擁有者是使用者。
 
 **重要發現**：車在世界 (1, 1) 開始建圖，`map → amr1/base_footprint` 卻是 (0, 0)。**`map` 座標系的原點是開始建圖時車子的位置**，不是 Gazebo 世界原點。慣例：repo 內的地圖都從出生點 (1, 1, 0) 開始建，所以世界座標 = 地圖座標 + (1, 1)。
 

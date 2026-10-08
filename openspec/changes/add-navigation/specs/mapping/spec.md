@@ -29,7 +29,7 @@
 
 #### Scenario: 存出地圖檔
 - **WHEN** 建圖中使用者依 README 的指令以名稱 `warehouse_small` 存圖
-- **THEN** 主機的 `data/maps/` 下出現 `warehouse_small.pgm` 與 `warehouse_small.yaml`，以圖片檢視器打開 `.pgm` 可看到倉庫的牆與貨架輪廓
+- **THEN** 主機的 `docker/amr_sim/data/maps/` 下出現 `warehouse_small.pgm` 與 `warehouse_small.yaml`，以圖片檢視器打開 `.pgm` 可看到倉庫的牆與貨架輪廓
 
 #### Scenario: 存出的地圖可供導航載入
 - **WHEN** 以剛存出的地圖名稱啟動導航模式

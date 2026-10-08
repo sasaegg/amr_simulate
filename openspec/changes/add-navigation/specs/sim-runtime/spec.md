@@ -24,7 +24,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: 執行設定
-兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）SHALL 放在專案 `docker/amr_sim/config/` 的一個環境變數檔；世界與車子系統的設定（world、headless、hardware、robot_id、出生位姿、mode、map）SHALL 以 launch 參數傳入，各參數的預設值寫在 launch 檔中。執行中產生的資料（地圖）SHALL 存放在專案的 `data/` 目錄，以可寫方式掛載到 robot 容器的 `/data`，存入的檔案在主機上屬於使用者。
+兩個容器共用的 ROS 環境變數（含 `ROS_DOMAIN_ID`）SHALL 放在專案 `docker/amr_sim/config/` 的一個環境變數檔；世界與車子系統的設定（world、headless、hardware、robot_id、出生位姿、mode、map）SHALL 以 launch 參數傳入，各參數的預設值寫在 launch 檔中。執行中產生的資料（地圖）SHALL 存放在專案的 `docker/amr_sim/data/` 目錄，以可寫方式掛載到 robot 容器的 `/data`，存入的檔案在主機上屬於使用者。
 
 #### Scenario: 兩個容器取得相同 domain
 - **WHEN** 使用者把環境變數檔中的 `ROS_DOMAIN_ID` 改為 42 並重建容器，再分別進入 `sim` 與 `robot` 執行 `ros2 topic list`
@@ -32,4 +32,4 @@
 
 #### Scenario: 地圖存到主機
 - **WHEN** robot 容器內的程序在 `/data/maps/` 寫入地圖檔
-- **THEN** 檔案出現在主機的 `data/maps/`，擁有者為主機使用者
+- **THEN** 檔案出現在主機的 `docker/amr_sim/data/maps/`，擁有者為主機使用者

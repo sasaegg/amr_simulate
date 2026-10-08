@@ -100,7 +100,7 @@ launch 檔用 XML 寫（和 ROS 1 的 `<arg>` 相同概念），設定全部是 
 | | `robot_id`（namespace 與 TF 前綴） | `amr1` |
 | | `x`、`y`、`yaw`：模擬時車輛放進世界的位置（公尺、弧度） | `0` |
 | | `mode`：`none`、`mapping`（建圖）、`navigation`（定位與導航） | `none` |
-| | `map`：`mode:=navigation` 時載入的地圖（`data/maps/<map>.yaml`） | `warehouse_small` |
+| | `map`：`mode:=navigation` 時載入的地圖（`docker/amr_sim/data/maps/<map>.yaml`） | `warehouse_small` |
 | `amr_navigation mapping.launch.xml` | `robot_id`、`use_sim_time`（模擬時要 `true`） | `amr1`、`false` |
 | `amr_navigation navigation.launch.xml` | `robot_id`、`use_sim_time`、`map` | `amr1`、`false`、`warehouse_small` |
 
@@ -112,7 +112,7 @@ ros2 launch amr_bringup robot.launch.xml --show-args     # 列出所有參數與
 
 兩個容器共用的 ROS 環境變數在 `docker/amr_sim/config/ros.env`：`ROS_DOMAIN_ID`（同網段有別人跑 ROS 2 時改成少見的數字；改完要 `up_gpu.sh` 重建容器）。
 
-執行時產生的資料（地圖）在專案的 `data/`，掛載到 robot 容器的 `/data`（可寫，檔案在主機上屬於你）；`data/maps/` 納入 git。
+執行時產生的資料（地圖）在專案的 `docker/amr_sim/data/`，掛載到 robot 容器的 `/data`（可寫，檔案在主機上屬於你）；`docker/amr_sim/data/maps/` 納入 git。
 
 ## 場景（Gazebo world）
 
@@ -148,14 +148,14 @@ Gazebo 看光達光束：右上角 ⋮ → Visualize Lidar → Topic 選 `/amr1/
 
 ## 建圖與存圖
 
-建圖用 slam_toolbox：一邊用 teleop 開車，一邊把光達掃到的東西畫成 2D 佔據格地圖。地圖存在 `data/maps/`（robot 容器的 `/data/maps`）。
+建圖用 slam_toolbox：一邊用 teleop 開車，一邊把光達掃到的東西畫成 2D 佔據格地圖。地圖存在 `docker/amr_sim/data/maps/`（robot 容器的 `/data/maps`）。
 
 ```bash
 # 世界與車子系統已在執行（見「建置與啟動」）；robot 容器內另開 shell：
 ros2 launch amr_navigation mapping.launch.xml use_sim_time:=true
 
 # 再開一個 shell：RViz（地圖、光達、車身都已設定好）
-rviz2 -d $(ros2 pkg prefix amr_navigation)/share/amr_navigation/config/navigate.rviz
+rviz2 -d $(ros2 pkg prefix --share amr_navigation)/config/navigate.rviz
 
 # 再開一個 shell：teleop 開車
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/amr1/cmd_vel
@@ -172,9 +172,9 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/amr
 ros2 run nav2_map_server map_saver_cli -f /data/maps/warehouse_small --ros-args -r map:=/amr1/map -p use_sim_time:=true
 ```
 
-- 產生 `data/maps/warehouse_small.pgm`（灰階圖片：白＝空曠、黑＝障礙、灰＝未知）與 `warehouse_small.yaml`（解析度、原點、門檻）。
+- 產生 `docker/amr_sim/data/maps/warehouse_small.pgm`（灰階圖片：白＝空曠、黑＝障礙、灰＝未知）與 `warehouse_small.yaml`（解析度、原點、門檻）。
 - `-r map:=/amr1/map`：map_saver 預設訂閱 `/map`，地圖在 namespace 下。
-- **同名會直接覆蓋**，建新圖請換名字；`data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
+- **同名會直接覆蓋**，建新圖請換名字；`docker/amr_sim/data/maps/` 有進 git，覆蓋錯了可以用 git 還原。
 
 ## 定位與導航
 
@@ -185,7 +185,7 @@ ros2 run nav2_map_server map_saver_cli -f /data/maps/warehouse_small --ros-args 
 ros2 launch amr_navigation navigation.launch.xml use_sim_time:=true map:=warehouse_small
 
 # RViz
-rviz2 -d $(ros2 pkg prefix amr_navigation)/share/amr_navigation/config/navigate.rviz
+rviz2 -d $(ros2 pkg prefix --share amr_navigation)/config/navigate.rviz
 ```
 
 RViz 操作順序：
@@ -193,7 +193,7 @@ RViz 操作順序：
 2. 工具列 **2D Goal Pose**：點目標位置、拖出方向。藍線是全域路徑，車子沿路開過去，抵達後停下。
 3. 目標在障礙物裡或到不了：Nav2 會先試著脫困（原地轉、後退、等待），仍不行就放棄並停車（終端機顯示 `Goal failed`）。
 
-- `map:=<名稱>` 載入 `data/maps/<名稱>.yaml`。
+- `map:=<名稱>` 載入 `docker/amr_sim/data/maps/<名稱>.yaml`。
 - 導航速度上限 0.5 m/s、1.0 rad/s（硬體上限是 1.0、1.5）。
 - **導航時不要同時用 teleop**：兩邊都發 `/amr1/cmd_vel`，會互搶。
 - 停止導航（Ctrl+C）後車子 1 秒內停下（虛擬驅動的指令逾時）。
@@ -218,7 +218,7 @@ cd src/amr_hw_sim && launch_test test/test_navigation_smoke.py   # 單一冒煙�
 cd /ros_ws/src/amr_worlds && env -i PATH=/usr/bin:/bin python3 -m pytest -q test
 ```
 
-冒煙測試：`test_sim_smoke`（車輛介面）、`test_mapping_smoke`（建圖、存圖）、`test_navigation_smoke`（定位、導航、失敗回報；用 `data/maps/warehouse_small`）。模擬開著時也能跑：先 `export ROS_DOMAIN_ID=<少見的數字> IGN_PARTITION=test`，測試就不會和開著的世界互相干擾。
+冒煙測試：`test_sim_smoke`（車輛介面）、`test_mapping_smoke`（建圖、存圖）、`test_navigation_smoke`（定位、導航、失敗回報；用 `docker/amr_sim/data/maps/warehouse_small`）。模擬開著時也能跑：先 `export ROS_DOMAIN_ID=<少見的數字> IGN_PARTITION=test`，測試就不會和開著的世界互相干擾。
 
 ## 疑難排解
 

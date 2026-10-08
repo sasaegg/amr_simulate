@@ -90,7 +90,7 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 
 ### D8：執行資料目錄與地圖版控
 
-- 主機 `data/` → robot 容器 `/data`（可寫，compose `../../data:/data`）；地圖在 `data/maps/`，納入 git（`.pgm` 已標 binary）。
+- 主機 `docker/amr_sim/data/` → robot 容器 `/data`（可寫，compose `./data:/data`）；地圖在 `docker/amr_sim/data/maps/`，納入 git（`.pgm` 已標 binary）。
 - repo 內附 `warehouse_small` 地圖：由使用者在建圖步驟親手用 teleop 建出並 commit；導航冒煙測試使用它。
 - sim 容器不掛 `/data`（世界不需要地圖）。
 
@@ -121,6 +121,6 @@ XML `<param from="$(find-pkg-share amr_navigation)/config/nav2.yaml" allow_subst
 
 ## Migration Plan
 
-- 新增套件與 `data/`；`robot.launch.xml` 新參數有預設值（`mode:=none`），既有啟動指令行為不變。
+- 新增套件與 `docker/amr_sim/data/`；`robot.launch.xml` 新參數有預設值（`mode:=none`），既有啟動指令行為不變。
 - compose 新增 robot 的 `/data` 掛載：需 `up_gpu.sh` 重建容器。
-- 回滾：刪除 `amr_navigation` 與 `data/`、還原 `robot.launch.xml` 與 compose。
+- 回滾：刪除 `amr_navigation` 與 `docker/amr_sim/data/`、還原 `robot.launch.xml` 與 compose。

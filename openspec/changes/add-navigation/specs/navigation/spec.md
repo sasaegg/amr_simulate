@@ -11,7 +11,7 @@
 
 #### Scenario: 載入預設地圖
 - **WHEN** 以 `mode:=navigation` 啟動車子系統且未指定 `map`
-- **THEN** `/amr1/map` 發布 `data/maps/warehouse_small` 的地圖
+- **THEN** `/amr1/map` 發布 `docker/amr_sim/data/maps/warehouse_small` 的地圖
 
 #### Scenario: 地圖不存在
 - **WHEN** 以 `mode:=navigation map:=nope` 啟動
