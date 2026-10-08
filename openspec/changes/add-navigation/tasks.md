@@ -20,7 +20,7 @@
 
 ## 3. 定位（navigation：載入地圖與 AMCL）
 
-- [ ] 3.1 （筆記 18）`config/nav2.yaml` 的 map_server、amcl 段落（D5：差速模型、frame 帶前綴、`scan_topic`、`set_initial_pose: false`）與 `launch/navigation.launch.xml` 的定位部分（參數 `robot_id`、`use_sim_time`、`map`；map_server、amcl、`lifecycle_manager_localization`；每個節點設 `use_sim_time`）；pytest：frame、地圖路徑為 `/data/maps/$(var map).yaml`、每個節點都有 `use_sim_time`。驗證：pytest 通過；以 `map:=warehouse_small` 啟動後 `/amr1/map` 有資料；RViz 以 2D Pose Estimate 點在車輛位置後 10 s 內 `map → amr1/base_footprint` 可查且與 Gazebo 中車輛位置差 < 0.3 m；teleop 行駛 5 m 後仍 < 0.3 m；`map:=nope` 時訊息顯示 `/data/maps/nope.yaml`
+- [x] 3.1 （筆記 18）`config/nav2.yaml` 的 map_server、amcl 段落（D5：差速模型、frame 帶前綴、`scan_topic`、`set_initial_pose: false`）與 `launch/navigation.launch.xml` 的定位部分（參數 `robot_id`、`use_sim_time`、`map`；map_server、amcl、`lifecycle_manager_localization`；每個節點設 `use_sim_time`）；pytest：frame、地圖路徑為 `/data/maps/$(var map).yaml`、每個節點都有 `use_sim_time`。驗證（開發時先以腳本建的暫時地圖 `dev_tmp`；正式地圖建好後於 4.3 冒煙測試再驗）：pytest 通過；以 `map:=warehouse_small` 啟動後 `/amr1/map` 有資料；RViz 以 2D Pose Estimate 點在車輛位置後 10 s 內 `map → amr1/base_footprint` 可查且與 Gazebo 中車輛位置差 < 0.3 m；teleop 行駛 5 m 後仍 < 0.3 m；`map:=nope` 時訊息顯示 `/data/maps/nope.yaml`
 
 ## 4. 導航（navigation：Nav2）
 

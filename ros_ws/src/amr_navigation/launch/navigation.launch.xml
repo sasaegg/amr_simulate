@@ -1,0 +1,41 @@
+<!--
+  導航：在已存的地圖上定位（map_server + AMCL），再由 Nav2 規劃路徑、自動行駛。
+  只用車輛標準介面（/ID/scan、/ID/odom、TF、/ID/cmd_vel），模擬與真車相同。
+
+  用法（robot 容器內，車子系統已在執行）：
+    ros2 launch amr_navigation navigation.launch.xml use_sim_time:=true map:=warehouse_small
+  也可由中控一起帶起：robot.launch.xml hardware:=sim mode:=navigation
+
+  啟動後在 RViz 先用 2D Pose Estimate 給初始位姿，再用 2D Goal Pose 給目標（見 README）。
+-->
+<launch>
+  <arg name="robot_id" default="amr1" description="車輛 id（namespace 與 frame 前綴）"/>
+  <arg name="use_sim_time" default="false" description="模擬時為 true（由中控帶起時自動設定）"/>
+  <arg name="map" default="warehouse_small" description="地圖名稱：/data/maps/MAP.yaml"/>
+
+  <let name="params" value="$(find-pkg-share amr_navigation)/config/nav2.yaml"/>
+
+  <group>
+    <push-ros-namespace namespace="$(var robot_id)"/>
+
+    <!-- ==================== 定位 ==================== -->
+    <!-- map_server：讀地圖檔，發布 /ID/map（Transient Local） -->
+    <node pkg="nav2_map_server" exec="map_server" name="map_server" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+      <param name="yaml_filename" value="/data/maps/$(var map).yaml"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+
+    <!-- amcl：粒子濾波器，以光達比對地圖，發布 map → ID/odom -->
+    <node pkg="nav2_amcl" exec="amcl" name="amcl" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+
+    <!-- lifecycle_manager：依序 configure → activate 上面兩個節點 -->
+    <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_localization" output="screen">
+      <param from="$(var params)" allow_substs="true"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+  </group>
+</launch>

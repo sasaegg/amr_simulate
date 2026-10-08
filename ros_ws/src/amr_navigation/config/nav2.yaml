@@ -1,0 +1,67 @@
+# Nav2 參數（navigation.launch.xml 以 allow_substs 載入，$(var robot_id) 會被代換）
+# 起點：nav2_bringup 官方 params/nav2_params.yaml（Humble）；只改本車相關的值，改過的都有註解。
+# 節點鍵用完整名稱 /<namespace>/<node>，costmap 子節點才吃得到（筆記 15）。
+# use_sim_time 不寫在這裡，由 launch 對每個節點設定。
+
+# ======================= 定位 =======================
+
+/$(var robot_id)/map_server:
+  ros__parameters:
+    yaml_filename: ""                             # 由 launch 依 map 參數設定（/data/maps/<map>.yaml）
+    topic_name: map                               # 相對名稱 → /<id>/map
+    frame_id: map
+
+/$(var robot_id)/amcl:
+  ros__parameters:
+    # ---- 介面（本車）----
+    global_frame_id: map
+    odom_frame_id: $(var robot_id)/odom
+    base_frame_id: $(var robot_id)/base_footprint
+    scan_topic: /$(var robot_id)/scan
+    map_topic: map                                # 相對名稱 → /<id>/map
+    tf_broadcast: true                            # 發布 map → <id>/odom
+    set_initial_pose: false                       # 初始位姿由使用者在 RViz 給（2D Pose Estimate → /<id>/initialpose）
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+
+    # ---- 光達模型 ----
+    laser_model_type: "likelihood_field"
+    laser_min_range: 0.12                         # 與 amr_description 光達一致（官方 -1：用感測器值）
+    laser_max_range: 12.0                         # 與 amr_description 光達一致（官方 100）
+    max_beams: 60                                 # 360 點中取 60 點計算，夠用且省 CPU
+    laser_likelihood_max_dist: 2.0
+    sigma_hit: 0.2
+    z_hit: 0.5
+    z_max: 0.05
+    z_rand: 0.5
+    z_short: 0.05
+    lambda_short: 0.1
+    do_beamskip: false
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+
+    # ---- 粒子濾波器 ----
+    min_particles: 500
+    max_particles: 2000
+    pf_err: 0.05
+    pf_z: 0.99
+    resample_interval: 1
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    update_min_d: 0.25                            # 移動 0.25 m 或轉 0.2 rad 才更新一次
+    update_min_a: 0.2
+
+    # ---- 里程計雜訊模型（官方預設）----
+    alpha1: 0.2                                   # 旋轉造成的旋轉誤差
+    alpha2: 0.2                                   # 平移造成的旋轉誤差
+    alpha3: 0.2                                   # 平移造成的平移誤差
+    alpha4: 0.2                                   # 旋轉造成的平移誤差
+    alpha5: 0.2
+
+    save_pose_rate: 0.5
+    transform_tolerance: 1.0
+
+/$(var robot_id)/lifecycle_manager_localization:
+  ros__parameters:
+    autostart: true
+    node_names: ["map_server", "amcl"]
