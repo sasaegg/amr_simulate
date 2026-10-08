@@ -22,8 +22,8 @@
 
 ## 4. 前端
 
-- [ ] 4.1 （筆記 30）`web/` 以 Vite react-ts 範本建立（相依見 D6）、`vite.config.ts` proxy、`api.ts`、`useRobotStream.ts`、`geometry.ts`（先寫 Vitest）、`MapView`（地圖底圖、縮放平移、整張地圖、游標座標）、`RobotMarker`、`PlanPath`、`Banner`、`App`。驗證：server 容器 `npm test`、`npx tsc --noEmit` 通過；`npm run dev` 後以軟體渲染 Chromium 或 in-app 瀏覽器開啟，截圖確認地圖方向與 RViz 一致、車輛即時移動、游標在倉庫左下角約 (0, 0)、後端停止時出現斷線橫幅並在恢復後自動重連
-- [ ] 4.2 （筆記 31）拖曳派車與設定初始位姿：`MapView` 手勢（D6）、`GoalArrow`、預覽箭頭、`StatusPanel`（狀態、原因、剩餘距離、目標、取消、「設定初始位姿」按鈕與模式提示）；Vitest 涵蓋拖曳送出 x/y/yaw、只點不拖用車的朝向、地圖外不送、初始位姿模式送出後回到派車、導航沒執行時停用、錯誤顯示 `detail`。驗證：測試通過；瀏覽器實際操作：設定初始位姿 → 派車到達 → 中途取消 → 派到箱子內顯示失敗
+- [x] 4.1 （筆記 30）`web/` 以 Vite react-ts 範本建立（相依見 D6）、`vite.config.ts` proxy、`api.ts`、`useRobotStream.ts`、`geometry.ts`（先寫 Vitest）、`MapView`（地圖底圖、縮放平移、整張地圖、游標座標）、`RobotMarker`、`PlanPath`、`Banner`、`App`。驗證：server 容器 `npm test`、`npx tsc --noEmit` 通過；`npm run dev` 後以軟體渲染 Chromium 或 in-app 瀏覽器開啟，截圖確認地圖方向與 RViz 一致、車輛即時移動、游標在倉庫左下角約 (0, 0)、後端停止時出現斷線橫幅並在恢復後自動重連
+- [x] 4.2 （筆記 31）拖曳派車與設定初始位姿：`MapView` 手勢（D6）、`GoalArrow`、預覽箭頭、`StatusPanel`（狀態、原因、剩餘距離、目標、取消、「設定初始位姿」按鈕與模式提示）；Vitest 涵蓋拖曳送出 x/y/yaw、只點不拖用車的朝向、地圖外不送、初始位姿模式送出後回到派車、導航沒執行時停用、錯誤顯示 `detail`。驗證：測試通過；瀏覽器實際操作：設定初始位姿 → 派車到達 → 中途取消 → 派到箱子內顯示失敗
 - [ ] 4.3 （筆記 32）`npm run build` 後由後端提供（`http://localhost:8000/`）；README 新增「7. 網頁派車」（啟動後端、開發模式與建置、`host` 的安全提醒、前端測試指令）、架構圖加入 server 容器、套件表加入 `amr_server` 與 `web/`、截圖 `docs/images/05_web.png`；`docs/開發摘要.md` 更新。驗證：照 README 指令從頭執行一次、截圖確認
 
 ## 5. 驗收
