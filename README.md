@@ -120,7 +120,7 @@ ros2 run tf2_ros tf2_echo amr1/odom amr1/laser_link
 rviz2
 ```
 
-RViz：Fixed Frame 設 `amr1/odom`；Add → `LaserScan`（Topic `/amr1/scan`）、`TF`、`RobotModel`（Description Topic `/amr1/robot_description`）。
+RViz：Fixed Frame 設 `amr1/odom`；Add → `LaserScan`（Topic `/amr1/scan`）、`TF`、`RobotModel`（Description Source `Topic`、Description Topic `/amr1/robot_description`、Durability Policy `Transient Local`、**TF Prefix `amr1`**——URDF 裡的 link 名稱沒有前綴，TF 裡有）。
 
 Gazebo 看光達光束：右上角 ⋮ → Visualize Lidar → Topic 選 `/amr1/scan`（沒有就按 refresh）。
 

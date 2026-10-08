@@ -38,7 +38,7 @@ README 是專案的入口：別人（或之後的自己）clone 下來，照著 
 | 5 | 光達光束 | Gazebo 右上 ⋮ → Visualize Lidar → Topic `/amr1/scan`（必要時按 refresh），光束打到牆 | ⬜ |
 | 6 | 鍵盤開車 | robot 容器另開 shell 執行 teleop（README），i 前進、j/l 轉向；車子照指令走 | ⬜ |
 | 7 | 放開後停車 | 關掉 teleop（Ctrl+C），車子 1 秒內停下 | ⬜ |
-| 8 | RViz | robot 容器 `rviz2`，Fixed Frame `amr1/odom`，加 LaserScan（`/amr1/scan`）、TF、RobotModel（`/amr1/robot_description`）；看得到掃到牆與貨架 | ⬜ |
+| 8 | RViz | robot 容器 `rviz2`：Global Options → Fixed Frame 填 `amr1/odom`；Add → LaserScan（Topic `/amr1/scan`，Size 調成 0.05）→ 紅點連成牆與貨架的輪廓；Add → TF → 看到 `amr1/odom`、`amr1/base_link`、`amr1/laser_link` 等座標軸；Add → RobotModel（Description Source 選 Topic、Description Topic 填 `/amr1/robot_description`、Durability Policy 選 Transient Local、**TF Prefix 填 `amr1`**）→ 出現車身。開車時三者一起移動 | ⬜ |
 | 9 | 停止車子系統 | robot launch 按 Ctrl+C：車子停在原地、Gazebo 仍在；再啟動一次，車回到 (1, 1) 且只有一台；改用 `x:=3 y:=1 yaw:=1.57` 啟動，車移到 (3, 1) 朝 +y | ⬜ |
 | 10 | 改場景 | 改 `warehouse_small.yaml`（例如移動一個障礙物）→ `gen_world` → 重啟世界，看到變化；過程中沒有重建映像 | ⬜ |
 | 11 | GUI 另存 world | Gazebo 中修改並另存為 `ros_ws/src/amr_worlds/worlds/warehouse_small_edited.sdf` → `colcon build` → 以 `world:=warehouse_small_edited` 重啟世界可載入 | ⬜ |
