@@ -4,7 +4,7 @@ ROS 2 Humble + Gazebo Fortress 的倉庫 AMR 模擬環境：可編輯的倉庫�
 
 - 子專案 1：模擬環境（完成）。設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-sim-environment/`](openspec/changes/archive/2026-10-08-add-sim-environment/)。
 - 子專案 2：建圖、定位、導航（完成）。設計與任務紀錄見 [`openspec/changes/archive/2026-10-08-add-navigation/`](openspec/changes/archive/2026-10-08-add-navigation/)。
-- 子專案 3：網頁派車（2D，進行中）。設計與任務紀錄見 [`openspec/changes/add-web-dispatch/`](openspec/changes/add-web-dispatch/)。
+- 子專案 3：網頁派車（2D，暫緩：初始位姿準確性與驗收列為待辦）。設計與任務紀錄見 [`openspec/changes/add-web-dispatch/`](openspec/changes/add-web-dispatch/)。
 
 規格見 [`openspec/specs/`](openspec/specs/)，逐步學習筆記見 [`docs/學習筆記/`](docs/學習筆記/README.md)。
 
