@@ -27,24 +27,26 @@ README 是專案的入口：別人（或之後的自己）clone 下來，照著 
 
 ## 使用者手動驗收清單（task 7.2）
 
-照 [`README.md`](../../README.md) 操作，逐項確認後把 ⬜ 改成 ✅ 並記下觀察：
+照 [`README.md`](../../README.md) 操作，逐項確認後把 ⬜ 改成 ✅ 並記下觀察。
+
+**2026-10-08 使用者驗收：14 項全部通過。**
 
 | # | 項目 | 怎麼做 | 結果 |
 |---|---|---|---|
-| 1 | 啟動 | `up_gpu.sh`（會重建容器，拿掉 `/config` 掛載）→ `exec.sh sim` 執行 `ros2 launch amr_worlds world.launch.xml` → `exec.sh robot` 執行 `ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1` | ⬜ |
-| 2 | 世界先無車、之後車輛出現 | 世界啟動時沒有車；車子系統啟動後車出現在左下角 (1, 1)，車頭朝 +x | ⬜ |
-| 3 | 3D 互動 | Gazebo 視窗中左鍵拖曳旋轉、中鍵平移、滾輪縮放，流暢 | ⬜ |
-| 4 | GPU | 容器內 `glxinfo -B` 的 renderer 是 RTX 3060；Gazebo 執行時主機 `nvidia-smi` 看得到 Gazebo | ⬜ |
-| 5 | 光達光束 | Gazebo 右上 ⋮ → Visualize Lidar → Topic `/amr1/scan`（必要時按 refresh），光束打到牆 | ⬜ |
-| 6 | 鍵盤開車 | robot 容器另開 shell 執行 teleop（README），i 前進、j/l 轉向；車子照指令走 | ⬜ |
-| 7 | 放開後停車 | 關掉 teleop（Ctrl+C），車子 1 秒內停下 | ⬜ |
-| 8 | RViz | robot 容器 `rviz2`：Global Options → Fixed Frame 填 `amr1/odom`；Add → LaserScan（Topic `/amr1/scan`，Size 調成 0.05）→ 紅點連成牆與貨架的輪廓；Add → TF → 看到 `amr1/odom`、`amr1/base_link`、`amr1/laser_link` 等座標軸；Add → RobotModel（Description Source 選 Topic、Description Topic 填 `/amr1/robot_description`、Durability Policy 選 Transient Local、**TF Prefix 填 `amr1`**）→ 出現車身。開車時三者一起移動 | ⬜ |
-| 9 | 停止車子系統 | robot launch 按 Ctrl+C：車子停在原地、Gazebo 仍在；再啟動一次，車回到 (1, 1) 且只有一台；改用 `x:=3 y:=1 yaw:=1.57` 啟動，車移到 (3, 1) 朝 +y | ⬜ |
-| 10 | 改場景 | 改 `warehouse_small.yaml`（例如移動一個障礙物）→ `gen_world` → 重啟世界，看到變化；過程中沒有重建映像 | ⬜ |
-| 11 | GUI 另存 world | Gazebo 中修改並另存為 `ros_ws/src/amr_worlds/worlds/warehouse_small_edited.sdf` → `colcon build` → 以 `world:=warehouse_small_edited` 重啟世界可載入 | ⬜ |
-| 12 | 軟體渲染 | `up_cpu.sh` 後重啟世界與車子系統，可運作（較慢）；`up_gpu.sh` 切回 | ⬜ |
-| 13 | exec.sh | 不給參數時顯示用法 | ⬜ |
-| 14 | 參數錯誤 | `robot.launch.xml` 不給 `hardware`、給 `hardware:=real` 各試一次，看訊息；關掉 Gazebo 視窗時世界的 launch 跟著結束 | ⬜ |
+| 1 | 啟動 | `up_gpu.sh`（會重建容器，拿掉 `/config` 掛載）→ `exec.sh sim` 執行 `ros2 launch amr_worlds world.launch.xml` → `exec.sh robot` 執行 `ros2 launch amr_bringup robot.launch.xml hardware:=sim x:=1 y:=1` | ✅ |
+| 2 | 世界先無車、之後車輛出現 | 世界啟動時沒有車；車子系統啟動後車出現在左下角 (1, 1)，車頭朝 +x | ✅ |
+| 3 | 3D 互動 | Gazebo 視窗中左鍵拖曳旋轉、中鍵平移、滾輪縮放，流暢 | ✅ |
+| 4 | GPU | 容器內 `glxinfo -B` 的 renderer 是 RTX 3060；Gazebo 執行時主機 `nvidia-smi` 看得到 Gazebo | ✅ |
+| 5 | 光達光束 | Gazebo 右上 ⋮ → Visualize Lidar → Topic `/amr1/scan`（必要時按 refresh），光束打到牆 | ✅ |
+| 6 | 鍵盤開車 | robot 容器另開 shell 執行 teleop（README），i 前進、j/l 轉向；車子照指令走 | ✅ |
+| 7 | 放開後停車 | 關掉 teleop（Ctrl+C），車子 1 秒內停下 | ✅ |
+| 8 | RViz | robot 容器 `rviz2`：Global Options → Fixed Frame 填 `amr1/odom`；Add → LaserScan（Topic `/amr1/scan`，Size 調成 0.05）→ 紅點連成牆與貨架的輪廓；Add → TF → 看到 `amr1/odom`、`amr1/base_link`、`amr1/laser_link` 等座標軸；Add → RobotModel（Description Source 選 Topic、Description Topic 填 `/amr1/robot_description`、Durability Policy 選 Transient Local、**TF Prefix 填 `amr1`**）→ 出現車身。開車時三者一起移動 | ✅ |
+| 9 | 停止車子系統 | robot launch 按 Ctrl+C：車子停在原地、Gazebo 仍在；再啟動一次，車回到 (1, 1) 且只有一台；改用 `x:=3 y:=1 yaw:=1.57` 啟動，車移到 (3, 1) 朝 +y | ✅ |
+| 10 | 改場景 | 改 `warehouse_small.yaml`（例如移動一個障礙物）→ `gen_world` → 重啟世界，看到變化；過程中沒有重建映像 | ✅ |
+| 11 | GUI 另存 world | Gazebo 中修改並另存為 `ros_ws/src/amr_worlds/worlds/warehouse_small_edited.sdf` → `colcon build` → 以 `world:=warehouse_small_edited` 重啟世界可載入 | ✅ |
+| 12 | 軟體渲染 | `up_cpu.sh` 後重啟世界與車子系統，可運作（較慢）；`up_gpu.sh` 切回 | ✅ |
+| 13 | exec.sh | 不給參數時顯示用法 | ✅ |
+| 14 | 參數錯誤 | `robot.launch.xml` 不給 `hardware`、給 `hardware:=real` 各試一次，看訊息；關掉 Gazebo 視窗時世界的 launch 跟著結束 | ✅ |
 
 驗收完成後：tasks.md 的 7.2 打勾、`docs/開發摘要.md` 子專案 1 狀態改為完成，再執行 `openspec archive add-sim-environment`。
 

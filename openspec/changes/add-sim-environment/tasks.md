@@ -53,7 +53,7 @@
 ## 7. 文件與整體驗收
 
 - [x] 7.1 （筆記 13）撰寫根目錄 `README.md`：主機前置（連結學習筆記 01–03）、架構（sim／robot 兩個容器、硬體模式、套件分工）、`docker/amr_sim/config/`（`ros.env`、`world.yaml`、`robot.yaml`）說明與 UID 非 1000 時的 `export USER_UID=$(id -u) USER_GID=$(id -g)`、建置與啟動流程、切換 world、軟體渲染、teleop、RViz、執行所有測試。驗證：依 README 從 `docker/amr_sim/build.sh` 開始操作可完成啟動
-- [ ] 7.2 （筆記 13）使用者依 design D7 手動驗收清單逐項確認（NVIDIA renderer、`nvidia-smi` 看得到 gazebo、軟體渲染可用、GUI 旋轉／平移／縮放、teleop 開車與放開停車、RViz 看到 scan、另一容器 echo `/amr1/scan` 有資料、改 YAML 重新產生重啟後看到變化且未重建映像、edited world 可載入、`exec.sh` 用法），結果記錄於筆記 13；更新 `docs/開發摘要.md` 子專案 1 狀態
+- [x] 7.2 （筆記 13）使用者依 design D7 手動驗收清單逐項確認（NVIDIA renderer、`nvidia-smi` 看得到 gazebo、軟體渲染可用、GUI 旋轉／平移／縮放、teleop 開車與放開停車、RViz 看到 scan、另一容器 echo `/amr1/scan` 有資料、改 YAML 重新產生重啟後看到變化且未重建映像、edited world 可載入、`exec.sh` 用法），結果記錄於筆記 13；更新 `docs/開發摘要.md` 子專案 1 狀態
 
 ## Workflow follow-up
 
